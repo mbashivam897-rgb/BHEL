@@ -20,6 +20,7 @@ Cover Page · Assumptions · Historical Financial Statements · Historical Ratio
 
 ## Methodology
 
+- **Income statement in gross-profit format:** `Sales − COGS = Gross Profit`; less **Operating Expenses** (Employee Cost + Selling & admin) `= EBITDA`; less D&A `= EBIT`; `+ Other Income − Interest = PBT`; less Tax `± Adjustments = PAT`.
 - **Order-book-driven revenue:** `Revenue = Execution rate × Opening order book`; `Closing OB = Opening + Inflow − Revenue`. No CAGR shortcuts.
 - **Cost build-up** as % of revenue (raw materials as residual) so EBITDA = revenue × target margin.
 - **Fully integrated:** working-capital, fixed-asset/depreciation, debt and equity schedules feed the income statement, an indirect cash-flow statement, and the balance sheet. Cash is derived from the cash flow; the balance sheet ties to zero every forecast year (no plugs).
