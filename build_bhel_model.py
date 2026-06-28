@@ -152,6 +152,9 @@ aset('div_payout','Dividend payout (% PAT)',[0.30]*7,FMT_PCT)
 aset('new_borrow','New borrowings drawn',[0]*7,FMT_CR)
 aset('debt_repay','Debt repayment',[1000]*7,FMT_CR)
 aset('int_rate','Interest rate on opening debt',[0.085]*7,FMT_PCT)
+aset('lt_debt_pct','LT borrowings (% of total debt)',[0.35]*7,FMT_PCT)
+aset('other_nca','Other non-current assets (closing)',[15500,16000,16500,17000,17500,18000,18500],FMT_CR)
+aset('other_ncl','Other non-current liabilities (closing)',[6200,6400,6600,6800,7000,7200,7400],FMT_CR)
 wr=rowA+1; put(asm,wr,1,'WACC & valuation inputs',font=F_SECT); wr+=1
 def asingle(key,label,value,fmt,note=''):
     global wr; ah_label(asm,wr,label)
@@ -505,45 +508,83 @@ ah_label(cs,23,'Net increase/(decrease) in cash',bold=True)
 for c in HCOLS: put(cs,23,c,"=%s"%lnk(c,'netcf',HFS),font=F_GREEN,fmt=FMT_CR,align=RGT)
 for c in FCOLS: put(cs,23,c,"=%s9+%s15+%s21"%(CL(c),CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 reg(cs,'netcf',23)
-frow(cs,24,'Opening cash & bank',fcst=lambda c:("='Working Capital Schedule'!H%d"%REG[WC]['cash_seed']) if c==9 else ("=%s25"%CL(c-1)),key='open_cash')
-frow(cs,25,'Closing cash & bank',fcst=lambda c:"=%s24+%s23"%(CL(c),CL(c)),key='close_cash',bold=True,fill=FILL_TOT)
+H_cash_open=[6353,6961,7084,6297,7126,7400,6004]; H_cash_close=[6961,7084,6297,7126,7400,6004,7000]
+frow(cs,24,'Opening cash & bank',hist=lambda c:H_cash_open[c-2],histfont=F_BLACK,
+     fcst=lambda c:("='Working Capital Schedule'!H%d"%REG[WC]['cash_seed']) if c==9 else ("=%s25"%CL(c-1)),key='open_cash')
+frow(cs,25,'Closing cash & bank',hist=lambda c:H_cash_close[c-2],histfont=F_BLACK,
+     fcst=lambda c:"=%s24+%s23"%(CL(c),CL(c)),key='close_cash',bold=True,fill=FILL_TOT)
+put(cs,26,1,'FY20-26 operating/investing/financing shown at reported subtotal level; cash balances rolled from reported net cash flow (FY26 anchor estimated).',font=F_NOTE)
 freeze(cs,'B5')
 
-# ===== FORECAST BALANCE SHEET BLOCK (FY26 onward) =====
-section(ff,24,'B.  BALANCE SHEET  (FY2026 reported, FY2027-33 forecast)')
-put(ff,25,1,'FY20-25: see Historical Financial Statements',font=F_NOTE,fill=FILL_SUB)
-for i,c in enumerate(ACOLS):
-    put(ff,25,c,(YEARS[i] if c>=8 else ''),font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
-def bsrow(r,label,col8,fcst,bold=False,fill=None,indent=0,key=None):
-    ah_label(ff,r,label,bold=bold,indent=indent)
-    put(ff,r,8,col8,font=F_GREEN,fmt=FMT_CR,align=RGT,fill=fill)
-    for c in FCOLS: put(ff,r,c,fcst(c),font=F_GREEN,fmt=FMT_CR,align=RGT,fill=fill)
+# ===== FORECAST BALANCE SHEET (grouped format, FY2020-FY2033; history filled) =====
+section(ff,24,'B.  BALANCE SHEET  (FY2020-FY2026 reported, FY2027-33 forecast)')
+yhdr(ff,25,'Particulars')
+put(ff,26,1,'Equities & Liabilities',font=F_LBLB,fill=FILL_SUB)
+for c in range(2,16): ff.cell(row=26,column=c).fill=FILL_SUB
+# historical detailed estimates (anchored exactly to reported totals)
+H_eqc=[696]*7; H_res=[27964,25287,25810,23682,23742,24026,25450]
+H_bor=[5080,4951,4830,5454,8856,9015,8187]
+H_ltbor=[round(b*0.35) for b in H_bor]; H_stbor=[H_bor[i]-H_ltbor[i] for i in range(7)]
+H_oncl=[5000,5000,5000,4000,4500,5500,6000]
+H_othl=[26550,25025,25654,27832,26489,35112,41852]
+H_pay=[17750,15673,16248,21099,17147,19115,14386]
+H_ocl=[H_othl[i]-H_pay[i]-H_oncl[i] for i in range(7)]
+H_ppe=[2817,2491,2398,2476,2574,2947,3094]; H_cwip=[314,420,431,354,308,195,399]; H_invv=[162,185,205,235,256,276,302]
+H_onca=[14000,13500,13000,13500,14000,14500,15000]
+H_recv=[7115,4030,3022,3137,4779,5901,6757]; H_invy=[18994,18573,15301,15962,16069,21331,18260]
+H_cash=[6961,7084,6297,7126,7400,6004,7000]
+H_tle=[H_eqc[i]+H_res[i]+H_bor[i]+H_othl[i] for i in range(7)]
+H_oca=[H_tle[i]-(H_ppe[i]+H_cwip[i]+H_invv[i]+H_onca[i]+H_recv[i]+H_invy[i]+H_cash[i]) for i in range(7)]
+def bline(r,label,hvals,fcst,indent=1,key=None):
+    ah_label(ff,r,label,indent=indent)
+    for j,c in enumerate(HCOLS): put(ff,r,c,hvals[j],font=F_BLACK,fmt=FMT_CR,align=RGT)
+    for c in FCOLS: put(ff,r,c,fcst(c),font=F_GREEN,fmt=FMT_CR,align=RGT)
     if key: reg(ff,key,r)
-bsrow(26,'Net property, plant & equipment',"=%s"%lnk(8,'ppe',HFS),lambda c:"=%s"%XR(FA,'close_nb',c),key='net_ppe')
-bsrow(27,'Capital work-in-progress',"=%s"%lnk(8,'cwip',HFS),lambda c:"=%s"%XR(ASM,'cwip',c),key='cwip')
-bsrow(28,'Investments',"=%s"%lnk(8,'inv',HFS),lambda c:"=%s"%XR(ASM,'investments',c),key='invst')
-bsrow(29,'Inventories',"=%s"%XR(WC,'inv',8),lambda c:"=%s"%XR(WC,'inv',c),indent=1,key='inventory')
-bsrow(30,'Trade receivables',"=%s"%XR(WC,'recv',8),lambda c:"=%s"%XR(WC,'recv',c),indent=1,key='recv')
-bsrow(31,'Contract assets',"=%s"%XR(WC,'ca',8),lambda c:"=%s"%XR(WC,'ca',c),indent=1,key='ca')
-bsrow(32,'Cash & bank balances',"=%s"%XR(WC,'cash_seed',8),lambda c:"=%s"%XR(CFS,'close_cash',c),indent=1,key='cash')
-bsrow(33,'Other current & non-current assets',"=%s"%XR(WC,'oca',8),lambda c:"=%s"%XR(WC,'oca',c),indent=1,key='oca')
-ah_label(ff,34,'TOTAL ASSETS',bold=True)
-for c in range(8,16): put(ff,34,c,"=SUM(%s26:%s33)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT,border=B_TB)
-reg(ff,'ta',34)
-bsrow(35,'Equity share capital',"=%s"%lnk(8,'eqc',HFS),lambda c:"=%s"%XR(EQ,'eqc',c),key='eqc')
-bsrow(36,'Other equity (reserves & surplus)',"=%s"%lnk(8,'res',HFS),lambda c:"=%s"%XR(EQ,'close_eq',c),key='res')
-bsrow(37,'Borrowings (incl. leases)',"=%s"%lnk(8,'bor',HFS),lambda c:"=%s"%XR(DBT,'close_d',c),key='bor')
-bsrow(38,'Trade payables',"=%s"%XR(WC,'pay',8),lambda c:"=%s"%XR(WC,'pay',c),indent=1,key='pay')
-bsrow(39,'Contract liabilities / advances',"=%s"%XR(WC,'cl',8),lambda c:"=%s"%XR(WC,'cl',c),indent=1,key='cl')
-bsrow(40,'Provisions & other liabilities',"=%s"%XR(WC,'ol',8),lambda c:"=%s"%XR(WC,'ol',c),indent=1,key='ol')
-ah_label(ff,41,'TOTAL EQUITY & LIABILITIES',bold=True)
-for c in range(8,16): put(ff,41,c,"=SUM(%s35:%s40)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT,border=B_TB)
-reg(ff,'tle',41)
-ah_label(ff,42,'Balance check (TA - TE&L)',bold=True)
-for c in range(8,16): put(ff,42,c,"=%s34-%s41"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT)
-reg(ff,'bschk',42)
+def bsub(r,label,fn,fill=FILL_TOT,key=None,border=B_TOP):
+    ah_label(ff,r,label,bold=True)
+    for c in ACOLS: put(ff,r,c,fn(c),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=fill,border=border)
+    if key: reg(ff,key,r)
+ah_label(ff,27,"Shareholders' Fund",bold=True)
+bline(28,'Share Capital',H_eqc,lambda c:"=%s"%XR(EQ,'eqc',c),key='eqc')
+bline(29,'Reserve & Surplus',H_res,lambda c:"=%s"%XR(EQ,'close_eq',c),key='res')
+bsub(30,"Total Shareholders' Fund",lambda c:"=%s28+%s29"%(CL(c),CL(c)),key='tsf')
+ah_label(ff,32,'Liabilities',bold=True)
+ah_label(ff,33,'Non-Current Liabilities',bold=True)
+bline(34,'LT borrowings',H_ltbor,lambda c:"=%s*%s"%(XR(ASM,'lt_debt_pct',c),XR(DBT,'close_d',c)),key='lt_bor')
+bline(35,'Other non current liabilities',H_oncl,lambda c:"=%s"%XR(ASM,'other_ncl',c),key='other_ncl')
+bsub(36,'Total Non-Current Liabilities',lambda c:"=%s34+%s35"%(CL(c),CL(c)),fill=None,key='tncl')
+bline(37,'ST borrowings',H_stbor,lambda c:"=%s-%s34"%(XR(DBT,'close_d',c),CL(c)),key='st_bor')
+bline(38,'Trade Payables',H_pay,lambda c:"=%s"%XR(WC,'pay',c),key='pay')
+bline(39,'Other Current Liabilities (provisions, advances)',H_ocl,lambda c:"=%s+%s-%s35"%(XR(WC,'cl',c),XR(WC,'ol',c),CL(c)),key='other_cl')
+bsub(40,'Total Liabilities',lambda c:"=%s36+%s37+%s38+%s39"%(CL(c),CL(c),CL(c),CL(c)),fill=None,key='tliab')
+bsub(42,'Total Equity & Liabilities',lambda c:"=%s30+%s40"%(CL(c),CL(c)),key='tle',border=B_TB)
+ah_label(ff,44,'Assets',bold=True)
+for c in range(2,16): ff.cell(row=44,column=c).fill=FILL_SUB
+put(ff,44,1,'Assets',font=F_LBLB,fill=FILL_SUB)
+ah_label(ff,45,'Non-Current Assets',bold=True)
+ah_label(ff,46,'Fixed Assets',bold=True)
+bline(47,'Property Plant & Equip',H_ppe,lambda c:"=%s"%XR(FA,'close_nb',c),key='net_ppe')
+bline(48,'Capital Work in Progress',H_cwip,lambda c:"=%s"%XR(ASM,'cwip',c),key='cwip')
+bline(49,'Investments',H_invv,lambda c:"=%s"%XR(ASM,'investments',c),key='invst')
+bsub(50,'Total Fixed Assets',lambda c:"=SUM(%s47:%s49)"%(CL(c),CL(c)),fill=None,key='tfa')
+bline(51,'Other Non Current Assets',H_onca,lambda c:"=%s"%XR(ASM,'other_nca',c),key='other_nca')
+bsub(52,'Total Non Current Assets',lambda c:"=%s50+%s51"%(CL(c),CL(c)),fill=None,key='tnca')
+ah_label(ff,54,'Current Assets',bold=True)
+bline(55,'Accounts Receivables',H_recv,lambda c:"=%s"%XR(WC,'recv',c),key='recv')
+bline(56,'Inventories',H_invy,lambda c:"=%s"%XR(WC,'inv',c),key='inventory')
+bline(57,'Other Current Assets',H_oca,lambda c:"=%s+%s-%s51"%(XR(WC,'ca',c),XR(WC,'oca',c),CL(c)),key='other_ca')
+bline(58,'Cash Balance (Incl. Bank and Current Invest)',H_cash,lambda c:"=%s"%XR(CFS,'close_cash',c),key='cash')
+bsub(59,'Total Current Assets',lambda c:"=SUM(%s55:%s58)"%(CL(c),CL(c)),fill=None,key='tca')
+bsub(61,'Total Assets',lambda c:"=%s52+%s59"%(CL(c),CL(c)),key='ta',border=B_TB)
+ah_label(ff,62,'Balance check (TA - TE&L)',bold=True)
+for c in ACOLS: put(ff,62,c,"=%s61-%s42"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT)
+reg(ff,'bschk',62)
+ah_label(ff,63,'Memo: total borrowings (LT+ST)',italic=True)
+for c in ACOLS: put(ff,63,c,"=%s34+%s37"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT)
+reg(ff,'bor',63)
+put(ff,64,1,'Historical balance-sheet sub-lines are analyst estimates anchored exactly to reported totals (debtor/inventory/payable days; cash rolled from reported net cash flow).',font=F_NOTE)
 freeze(ff,'B5')
-print("Cash Flow + Forecast BS built.")
+print("Cash Flow + Forecast BS (grouped, history filled) built.")
 
 
 # ===== 17. DCF VALUATION (FCFF) =====
@@ -726,7 +767,7 @@ for i,c in enumerate(ACOLS): put(ec,4,c,(YEARS[i] if c>=8 else ''),font=F_LBLB,f
 def echk(r,label,a,b,start=9):
     ah_label(ec,r,label)
     for c in range(start,16): put(ec,r,c,'=IF(ABS(%s-%s)<0.5,"OK","REVIEW")'%(a(c),b(c)),font=F_BLUE,align=CEN,border=B_ALL)
-echk(5,'Balance sheet balances (TA = TE&L)',lambda c:FR('ta',c),lambda c:FR('tle',c),start=8)
+echk(5,'Balance sheet balances (TA = TE&L)',lambda c:FR('ta',c),lambda c:FR('tle',c),start=2)
 echk(6,'Cash: Balance sheet = Cash flow stmt',lambda c:FR('cash',c),lambda c:"'%s'!%s25"%(CFS,CL(c)))
 echk(7,'Retained earnings roll-forward ties',lambda c:FR('res',c),lambda c:"'%s'!%s10"%(EQ,CL(c)))
 echk(8,'Debt roll-forward ties',lambda c:FR('bor',c),lambda c:"'%s'!%s9"%(DBT,CL(c)))
