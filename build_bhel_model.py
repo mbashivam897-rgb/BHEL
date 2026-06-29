@@ -121,7 +121,14 @@ freeze(cv,'A1')
 
 # ===== 2. ASSUMPTIONS =====
 ASM='Assumptions'; asm=newsheet(ASM)
-put(asm,3,1,'Operating & financial drivers (editable inputs in gold)',font=F_SECT)
+from openpyxl.worksheet.datavalidation import DataValidation
+put(asm,2,2,'Scenario Switch',font=F_LBLB)
+sw=put(asm,2,4,'Base',font=F_LBLB,fill=FILL_IN,align=CEN,border=B_ALL)
+_dv=DataValidation(type='list',formula1='"Base,Best,Bear"',allow_blank=False); asm.add_data_validation(_dv); _dv.add('D2')
+put(asm,2,6,'<- toggles the VARIABLE drivers below; revenue, margins, cash flow & valuation recalculate',font=F_NOTE)
+SW='$D$2'
+put(asm,3,1,'A.  VARIABLE ASSUMPTIONS  (Base / Best / Bear - selected by Scenario Switch)',font=F_SECT)
+put(asm,3,9,'Sales growth is DERIVED (Revenue Build-up): Revenue = Execution rate x Opening order book; Closing OB = Opening + Inflow - Revenue.',font=F_NOTE)
 yhdr(asm,4,'ratios / INR Crore')
 rowA=5
 def aset(key,label,vals7,fmt,note='',indent=0):
@@ -129,9 +136,27 @@ def aset(key,label,vals7,fmt,note='',indent=0):
     for j,c in enumerate(FCOLS): put(asm,r,c,vals7[j],font=F_BLACK,fmt=fmt,fill=FILL_IN,align=RGT,border=B_ALL)
     if note: put(asm,r,16,note,font=F_NOTE)
     reg(asm,key,r); rowA+=1; return r
-aset('exec_rate','Execution rate (revenue / opening order book)',[0.165,0.170,0.175,0.180,0.185,0.190,0.195],FMT_PCT)
-aset('order_inflow','New order inflow',[78000,82000,86000,90000,92000,94000,96000],FMT_CR)
-aset('ebitda_margin','EBITDA margin (% revenue)',[0.075,0.085,0.095,0.105,0.110,0.115,0.120],FMT_PCT)
+def vaset(key,label,base,best,bear,fmt,note=''):
+    global rowA; r=rowA; ah_label(asm,r,label,bold=True)
+    for j,c in enumerate(FCOLS):
+        f='=IF(%s="Best",%s%d,IF(%s="Bear",%s%d,%s%d))'%(SW,CL(c),r+2,SW,CL(c),r+3,CL(c),r+1)
+        put(asm,r,c,f,font=F_BLUE,fmt=fmt,fill=FILL_TOT,align=RGT,border=B_ALL)
+    if note: put(asm,r,16,note,font=F_NOTE)
+    for jj,(nm,vals) in enumerate([('Base',base),('Best',best),('Bear',bear)]):
+        r2=r+1+jj; ah_label(asm,r2,'   '+nm,italic=True)
+        for j,c in enumerate(FCOLS): put(asm,r2,c,vals[j],font=F_BLACK,fmt=fmt,fill=FILL_IN,align=RGT,border=B_ALL)
+    reg(asm,key,r); rowA=r+5; return r
+vaset('order_inflow','New order inflow (INR Cr)  [revenue driver]',
+ [78000,82000,86000,90000,92000,94000,96000],[90000,95000,100000,105000,108000,110000,112000],[62000,64000,66000,68000,70000,72000,74000],FMT_CR,
+ 'Demand driver: thermal/T&D/defence ordering. Best=accelerated power capex cycle; Bear=delayed ordering.')
+vaset('exec_rate','Execution rate (revenue / opening order book)  [revenue driver]',
+ [0.165,0.170,0.175,0.180,0.185,0.190,0.195],[0.175,0.182,0.190,0.197,0.205,0.210,0.215],[0.150,0.152,0.155,0.158,0.160,0.162,0.165],FMT_PCT,
+ 'Order-book-to-revenue conversion; rises with capacity utilisation & supply-chain normalisation.')
+vaset('ebitda_margin','EBITDA margin (% revenue)',
+ [0.075,0.085,0.095,0.105,0.110,0.115,0.120],[0.090,0.100,0.110,0.120,0.125,0.130,0.135],[0.060,0.065,0.072,0.080,0.085,0.090,0.095],FMT_PCT,
+ 'Operating leverage on a largely fixed cost base; commodity (steel/copper) & pricing risk.')
+put(asm,rowA,1,'B.  FIXED ASSUMPTIONS  (structural / policy - constant across scenarios)',font=F_SECT); rowA+=1
+yhdr(asm,rowA,'ratios / INR Crore'); rowA+=1
 aset('oth_inc_pct','Other income (% revenue)',[0.018]*7,FMT_PCT)
 aset('emp_pct','Employee cost (% revenue)',[0.135,0.128,0.122,0.116,0.112,0.108,0.105],FMT_PCT)
 aset('subc_pct','Subcontracting & erection (% revenue, in COGS)',[0.085]*7,FMT_PCT)
