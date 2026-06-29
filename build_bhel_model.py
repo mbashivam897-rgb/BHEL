@@ -312,7 +312,7 @@ freeze(hr,'B4')
 
 # ===== 5. OPERATIONAL DRIVERS =====
 od=newsheet('Operational Drivers')
-put(od,2,1,'Order data on standalone basis; FY20-FY22 order book are estimates (flagged).',font=F_NOTE)
+put(od,2,1,'Order data on standalone basis. FY20-22 figures are estimates (flagged). The "Adjustments" line captures order cancellations, de-scoping, FX revaluation, price/scope revisions and tax-basis differences so the roll ties to the reported closing order book.',font=F_NOTE)
 yhdr(od,4)
 def odrow(r,label,vals,fmt=FMT_CR,font=F_BLACK,bold=False,key=None,note=''):
     ah_label(od,r,label,bold=bold)
@@ -323,24 +323,26 @@ def odf(r,label,fn,fmt,key=None):
     ah_label(od,r,label)
     for c in HCOLS: put(od,r,c,fn(c),font=F_BLUE,fmt=fmt,align=RGT)
     if key: reg(od,key,r)
-section(od,5,'Order book dynamics (INR Crore)')
+section(od,5,'Order book dynamics (INR Crore, standalone)')
 odrow(6,'Opening order book',[115000,110000,102000,98000,91336,131598,196328],key='ob_open',note='FY20-22 est.')
 odrow(7,'Add: new order inflow',[18000,15000,22000,23548,63000,92535,75000],key='ob_inflow',note='some est.')
-odrow(8,'Less: revenue executed (standalone)',[-20495,-16296,-20153,-22136,-22921,-27355,-33782],key='ob_exec',note='standalone rev from operations')
-odrow(9,'Closing order book',[110000,102000,98000,91336,131598,196328,240000],key='ob_close',bold=True)
-odf(10,'Book-to-bill (closing OB/revenue, x)',lambda c:"=%s9/-%s8"%(CL(c),CL(c)),FMT_X)
-odf(11,'Execution rate (revenue/opening OB)',lambda c:"=-%s8/%s6"%(CL(c),CL(c)),FMT_PCT)
-section(od,13,'Segment revenue mix (INR Crore, est.)')
-odrow(14,'Power segment',[16800,13500,16500,18100,18600,20937,25407],key='seg_pow')
-odrow(15,'Industry segment',[3900,3200,4000,4600,4700,6400,7400],key='seg_ind')
-odrow(16,'Others / exports / renewables',[763,609,711,665,593,1002,975],key='seg_oth')
-odf(17,'Total (check vs revenue)',lambda c:"=SUM(%s14:%s16)"%(CL(c),CL(c)),FMT_CR)
-odf(18,'Power as % of revenue',lambda c:"=%s14/%s"%(CL(c),lnk(c,'rev',HFS)),FMT_PCT)
-section(od,20,'Other KPIs')
-odrow(21,'Approx. workforce (number)',[33500,31500,29800,28500,27000,26000,25500],fmt='#,##0',note='approx.')
-odrow(22,'R&D expenditure',[1180,1090,1050,1100,1150,1300,1500],note='approx.')
-odf(23,'R&D as % of revenue',lambda c:"=%s22/%s"%(CL(c),lnk(c,'rev',HFS)),FMT_PCT)
-odrow(24,'Capacity utilisation (mfg.)',[0.55,0.42,0.50,0.55,0.58,0.65,0.72],fmt=FMT_PCT,note='approx.')
+odrow(8,'Less: revenue executed (standalone)',[-20495,-16296,-20153,-22136,-22921,-27355,-33782],key='ob_exec',note='standalone rev')
+odf(9,'+/- Adjustments (cancellations, FX, scope, taxes)',lambda c:"=%s10-%s6-%s7-%s8"%(CL(c),CL(c),CL(c),CL(c)),FMT_CR,key='ob_adj')
+odrow(10,'Closing order book (reported)',[110000,102000,98000,91336,131598,196328,240000],key='ob_close',bold=True)
+odf(11,'  Roll check (open+inflow-rev+adj-close)',lambda c:"=%s6+%s7+%s8+%s9-%s10"%(CL(c),CL(c),CL(c),CL(c),CL(c)),FMT_CR)
+odf(12,'Book-to-bill (closing OB / revenue, x)',lambda c:"=%s10/-%s8"%(CL(c),CL(c)),FMT_X)
+odf(13,'Execution rate (revenue / opening OB)',lambda c:"=-%s8/%s6"%(CL(c),CL(c)),FMT_PCT)
+section(od,15,'Segment revenue mix (INR Crore, est.)')
+odrow(16,'Power segment',[16800,13500,16500,18100,18600,20937,25407],key='seg_pow')
+odrow(17,'Industry segment',[3900,3200,4000,4600,4700,6400,7400],key='seg_ind')
+odrow(18,'Others / exports / renewables',[763,609,711,665,593,1002,975],key='seg_oth')
+odf(19,'Total (check vs revenue)',lambda c:"=SUM(%s16:%s18)"%(CL(c),CL(c)),FMT_CR)
+odf(20,'Power as % of revenue',lambda c:"=%s16/%s"%(CL(c),lnk(c,'rev',HFS)),FMT_PCT)
+section(od,22,'Other KPIs')
+odrow(23,'Approx. workforce (number)',[33500,31500,29800,28500,27000,26000,25500],fmt='#,##0',note='approx.')
+odrow(24,'R&D expenditure',[1180,1090,1050,1100,1150,1300,1500],note='approx.')
+odf(25,'R&D as % of revenue',lambda c:"=%s24/%s"%(CL(c),lnk(c,'rev',HFS)),FMT_PCT)
+odrow(26,'Capacity utilisation (mfg.)',[0.55,0.42,0.50,0.55,0.58,0.65,0.72],fmt=FMT_PCT,note='approx.')
 freeze(od,'B5')
 print("Historical Ratios + Operational Drivers built.")
 
@@ -362,39 +364,42 @@ def frow(ws,r,label,hist=None,fcst=None,fmt=FMT_CR,bold=False,indent=0,fill=None
 
 # ===== 6. REVENUE BUILD-UP =====
 RB='Revenue Build-up'; rb=newsheet(RB)
-put(rb,2,1,'Order book is rolled on a STANDALONE basis (as BHEL discloses it): Standalone revenue = Execution rate x Opening order book; Closing OB = Opening + Inflow - Standalone revenue. Consolidated revenue (used in the P&L) is then bridged from standalone via a consolidation uplift.',font=F_NOTE)
+put(rb,2,1,'Order book rolled on STANDALONE basis: Closing OB = Opening + Inflow - Standalone revenue + Adjustments (cancellations/FX/scope/taxes). Consolidated revenue (P&L) is bridged from standalone via a consolidation uplift.',font=F_NOTE)
 yhdr(rb,4); section(rb,5,'A.  Order book roll-forward  (standalone basis, as disclosed)')
-obc=REG['Operational Drivers']['ob_close']; obo=REG['Operational Drivers']['ob_open']; obi=REG['Operational Drivers']['ob_inflow']; obx=REG['Operational Drivers']['ob_exec']
+obc=REG['Operational Drivers']['ob_close']; obo=REG['Operational Drivers']['ob_open']; obi=REG['Operational Drivers']['ob_inflow']; obx=REG['Operational Drivers']['ob_exec']; obadj=REG['Operational Drivers']['ob_adj']
 frow(rb,6,'Opening order book (standalone)',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),obo),
-     fcst=lambda c:("='Operational Drivers'!H%d"%obc) if c==9 else ("=%s9"%CL(c-1)),key='open_ob',bold=True)
+     fcst=lambda c:("='Operational Drivers'!H%d"%obc) if c==9 else ("=%s10"%CL(c-1)),key='open_ob',bold=True)
 frow(rb,7,'Add: new order inflow',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),obi),
      fcst=lambda c:"=%s"%XR(ASM,'order_inflow',c),key='inflow')
 frow(rb,8,'Less: standalone revenue executed',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),obx),
      fcst=lambda c:"=-%s*%s6"%(XR(ASM,'exec_rate',c),CL(c)),key='exec_neg')
-frow(rb,9,'Closing order book (standalone)',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),obc),
-     fcst=lambda c:"=%s6+%s7+%s8"%(CL(c),CL(c),CL(c)),key='close_ob',bold=True,fill=FILL_TOT)
-section(rb,11,'B.  Standalone -> consolidated revenue bridge')
-frow(rb,12,'Standalone revenue from operations',hist=lambda c:"=-%s8"%CL(c),fcst=lambda c:"=-%s8"%CL(c),key='rev_sa',bold=True)
-frow(rb,13,'Consolidation uplift % (consol/standalone - 1)',
-     hist=lambda c:"=%s/%s12-1"%(lnk(c,'rev',HFS),CL(c)),fcst=lambda c:"=%s"%XR(ASM,'consol_uplift',c),fmt=FMT_PCT,key='uplift')
-ah_label(rb,14,'Consolidated revenue from operations  ->  P&L',bold=True)
-for c in ACOLS: put(rb,14,c,"=%s12*(1+%s13)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT,border=B_TOP)
-reg(rb,'rev',14)
+frow(rb,9,'+/- Adjustments (cancellations/FX/scope/taxes)',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),obadj),
+     fcst=lambda c:0,key='ob_adj')
+ah_label(rb,10,'Closing order book (standalone)',bold=True)
+for c in ACOLS: put(rb,10,c,"=%s6+%s7+%s8+%s9"%(CL(c),CL(c),CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
+reg(rb,'close_ob',10)
+section(rb,12,'B.  Standalone -> consolidated revenue bridge')
+frow(rb,13,'Standalone revenue from operations',hist=lambda c:"=-%s8"%CL(c),fcst=lambda c:"=-%s8"%CL(c),key='rev_sa',bold=True)
+frow(rb,14,'Consolidation uplift % (consol/standalone - 1)',
+     hist=lambda c:"=%s/%s13-1"%(lnk(c,'rev',HFS),CL(c)),fcst=lambda c:"=%s"%XR(ASM,'consol_uplift',c),fmt=FMT_PCT,key='uplift')
+ah_label(rb,15,'Consolidated revenue from operations  ->  P&L',bold=True)
+for c in ACOLS: put(rb,15,c,"=%s13*(1+%s14)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT,border=B_TOP)
+reg(rb,'rev',15)
 def rbpct(r,label,fn,fmt,start=3):
     ah_label(rb,r,label)
     for c in ACOLS:
         if c<start: continue
         put(rb,r,c,fn(c),font=F_BLUE,fmt=fmt,align=RGT)
-rbpct(15,'Revenue growth % (consolidated)',lambda c:"=%s14/%s14-1"%(CL(c),CL(c-1)),FMT_PCT)
-rbpct(16,'Execution rate % (standalone rev / opening OB)',lambda c:"=%s12/%s6"%(CL(c),CL(c)),FMT_PCT,start=2)
-rbpct(17,'Book-to-bill (closing OB / standalone rev, x)',lambda c:"=%s9/%s12"%(CL(c),CL(c)),FMT_X,start=2)
-section(rb,19,'C.  Segment revenue breakup (consolidated)')
+rbpct(16,'Revenue growth % (consolidated)',lambda c:"=%s15/%s15-1"%(CL(c),CL(c-1)),FMT_PCT)
+rbpct(17,'Execution rate % (standalone rev / opening OB)',lambda c:"=%s13/%s6"%(CL(c),CL(c)),FMT_PCT,start=2)
+rbpct(18,'Book-to-bill (closing OB / standalone rev, x)',lambda c:"=%s10/%s13"%(CL(c),CL(c)),FMT_X,start=2)
+section(rb,20,'C.  Segment revenue breakup (consolidated)')
 segpow=REG['Operational Drivers']['seg_pow']; segind=REG['Operational Drivers']['seg_ind']; segoth=REG['Operational Drivers']['seg_oth']
-frow(rb,20,'Power segment',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segpow),fcst=lambda c:"=%s14*%s"%(CL(c),XR(ASM,'power_mix',c)),key='seg_pow')
-frow(rb,21,'Industry segment',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segind),fcst=lambda c:"=%s14*%s"%(CL(c),XR(ASM,'industry_mix',c)),key='seg_ind')
-frow(rb,22,'Others / exports / renewables',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segoth),fcst=lambda c:"=%s14*(1-%s-%s)"%(CL(c),XR(ASM,'power_mix',c),XR(ASM,'industry_mix',c)),key='seg_oth')
-ah_label(rb,23,'Total segment revenue (check vs consolidated)',bold=True)
-for c in ACOLS: put(rb,23,c,"=SUM(%s20:%s22)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
+frow(rb,21,'Power segment',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segpow),fcst=lambda c:"=%s15*%s"%(CL(c),XR(ASM,'power_mix',c)),key='seg_pow')
+frow(rb,22,'Industry segment',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segind),fcst=lambda c:"=%s15*%s"%(CL(c),XR(ASM,'industry_mix',c)),key='seg_ind')
+frow(rb,23,'Others / exports / renewables',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segoth),fcst=lambda c:"=%s15*(1-%s-%s)"%(CL(c),XR(ASM,'power_mix',c),XR(ASM,'industry_mix',c)),key='seg_oth')
+ah_label(rb,24,'Total segment revenue (check vs consolidated)',bold=True)
+for c in ACOLS: put(rb,24,c,"=SUM(%s21:%s23)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 freeze(rb,'B5')
 
 # ===== 7. COST FORECAST (granular breakup) =====
@@ -890,7 +895,7 @@ c2=BarChart(); c2.title="PAT (INR Cr)"; c2.height=7.5; c2.width=15; c2.style=12
 c2.add_data(Reference(ff,min_col=2,max_col=15,min_row=20,max_row=20),from_rows=True,titles_from_data=False)
 c2.set_categories(Reference(ff,min_col=2,max_col=15,min_row=4,max_row=4)); db.add_chart(c2,"E17")
 c3=LineChart(); c3.title="Closing order book (INR Cr)"; c3.height=7.5; c3.width=15; c3.style=11
-c3.add_data(Reference(rb,min_col=2,max_col=15,min_row=9,max_row=9),from_rows=True,titles_from_data=False)
+c3.add_data(Reference(rb,min_col=2,max_col=15,min_row=10,max_row=10),from_rows=True,titles_from_data=False)
 c3.set_categories(Reference(rb,min_col=2,max_col=15,min_row=4,max_row=4)); db.add_chart(c3,"A33")
 c4=BarChart(); c4.title="FCFF (INR Cr, FY27-33)"; c4.height=7.5; c4.width=15; c4.style=13
 c4.add_data(Reference(dc,min_col=9,max_col=15,min_row=12,max_row=12),from_rows=True,titles_from_data=False)
