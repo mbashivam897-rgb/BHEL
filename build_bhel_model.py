@@ -136,6 +136,14 @@ aset('oth_inc_pct','Other income (% revenue)',[0.018]*7,FMT_PCT)
 aset('emp_pct','Employee cost (% revenue)',[0.135,0.128,0.122,0.116,0.112,0.108,0.105],FMT_PCT)
 aset('subc_pct','Subcontracting & erection (% revenue, in COGS)',[0.085]*7,FMT_PCT)
 aset('sga_pct','Selling & admin (% revenue)',[0.075]*7,FMT_PCT)
+aset('steel_pct','  COGS: Steel (% revenue)',[0.12]*7,FMT_PCT)
+aset('copper_pct','  COGS: Copper (% revenue)',[0.05]*7,FMT_PCT)
+aset('elec_pct','  COGS: Electrical & electronic components (% rev)',[0.10]*7,FMT_PCT)
+aset('imported_pct','  COGS: Imported components (% revenue)',[0.08]*7,FMT_PCT)
+aset('selling_pct','  OpEx: Selling & distribution (% revenue)',[0.025]*7,FMT_PCT)
+aset('rnd_pct','  OpEx: Research & development (% revenue)',[0.025]*7,FMT_PCT)
+aset('power_mix','Revenue mix: Power segment %',[0.75]*7,FMT_PCT)
+aset('industry_mix','Revenue mix: Industry segment %',[0.22]*7,FMT_PCT)
 aset('capex','Capital expenditure',[600,700,750,800,850,900,950],FMT_CR)
 aset('dep_rate','Depreciation rate (% opening net block)',[0.095]*7,FMT_PCT)
 aset('recv_days','Trade receivable days',[75]*7,FMT_DAYS)
@@ -349,26 +357,41 @@ def rbpct(r,label,fn,fmt,start=3):
 rbpct(12,'Revenue growth %',lambda c:"=%s11/%s11-1"%(CL(c),CL(c-1)),FMT_PCT)
 rbpct(13,'Execution rate %',lambda c:"=%s11/%s6"%(CL(c),CL(c)),FMT_PCT,start=2)
 rbpct(14,'Book-to-bill (x)',lambda c:"=%s9/%s11"%(CL(c),CL(c)),FMT_X,start=2)
+section(rb,16,'Segment revenue breakup')
+segpow=REG['Operational Drivers']['seg_pow']; segind=REG['Operational Drivers']['seg_ind']; segoth=REG['Operational Drivers']['seg_oth']
+frow(rb,17,'Power segment',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segpow),fcst=lambda c:"=%s11*%s"%(CL(c),XR(ASM,'power_mix',c)),key='seg_pow')
+frow(rb,18,'Industry segment',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segind),fcst=lambda c:"=%s11*%s"%(CL(c),XR(ASM,'industry_mix',c)),key='seg_ind')
+frow(rb,19,'Others / exports / renewables',hist=lambda c:"='Operational Drivers'!%s%d"%(CL(c),segoth),fcst=lambda c:"=%s11*(1-%s-%s)"%(CL(c),XR(ASM,'power_mix',c),XR(ASM,'industry_mix',c)),key='seg_oth')
+ah_label(rb,20,'Total segment revenue (check vs total)',bold=True)
+for c in ACOLS: put(rb,20,c,"=SUM(%s17:%s19)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 freeze(rb,'B5')
 
-# ===== 7. COST FORECAST (gross-profit format) =====
+# ===== 7. COST FORECAST (granular breakup) =====
 CF='Cost Forecast'; cf=newsheet(CF)
-put(cf,2,1,'COGS = raw materials + subcontracting. Operating expenses = employee + selling/admin. EBITDA = revenue x target margin.',font=F_NOTE)
-yhdr(cf,4); section(cf,5,'Cost build-up (gross-profit format)')
+put(cf,2,1,'Granular cost build-up. COGS = materials (steel/copper/components/imported/other) + subcontracting. OpEx = employee + selling + admin + R&D. EBITDA = revenue x target margin. Historical sub-components are not separately disclosed (shown at total level).',font=F_NOTE)
+yhdr(cf,4); section(cf,5,'A.  Cost of goods sold (COGS)')
 frow(cf,6,'Revenue from operations',hist=lambda c:"=%s"%lnk(c,'rev',HFS),fcst=lambda c:"=%s"%XR(RB,'rev',c),key='rev',bold=True)
-frow(cf,7,'Raw materials, components & traded goods',fcst=lambda c:"=%s6*(1-%s-%s-%s-%s)"%(CL(c),XR(ASM,'ebitda_margin',c),XR(ASM,'emp_pct',c),XR(ASM,'subc_pct',c),XR(ASM,'sga_pct',c)),key='rm',indent=1)
-frow(cf,8,'Subcontracting & erection',fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'subc_pct',c)),key='subc',indent=1)
-frow(cf,9,'Total COGS',hist=lambda c:"=%s"%lnk(c,'cogs',HFS),fcst=lambda c:"=%s7+%s8"%(CL(c),CL(c)),key='cogs',bold=True,fill=FILL_TOT)
-frow(cf,10,'Gross profit',hist=lambda c:"=%s"%lnk(c,'gross',HFS),fcst=lambda c:"=%s6-%s9"%(CL(c),CL(c)),key='gross',bold=True)
-frow(cf,11,'Employee cost',hist=lambda c:"=%s"%lnk(c,'emp',HFS),fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'emp_pct',c)),key='emp',indent=1)
-frow(cf,12,'Selling & admin',hist=lambda c:"=%s"%lnk(c,'sga',HFS),fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'sga_pct',c)),key='sga',indent=1)
-frow(cf,13,'Total operating expenses',hist=lambda c:"=%s"%lnk(c,'totopex',HFS),fcst=lambda c:"=%s11+%s12"%(CL(c),CL(c)),key='totopex',bold=True,fill=FILL_TOT)
-frow(cf,14,'EBITDA',hist=lambda c:"=%s"%lnk(c,'ebitda',HFS),fcst=lambda c:"=%s10-%s13"%(CL(c),CL(c)),key='ebitda',bold=True,fill=FILL_TOT)
-ah_label(cf,15,'EBITDA margin %')
-for c in ACOLS: put(cf,15,c,"=%s14/%s6"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_PCT,align=RGT)
-frow(cf,16,'Memo: total operating cost (COGS+OpEx)',hist=lambda c:"=%s"%lnk(c,'totcost',HFS),fcst=lambda c:"=%s9+%s13"%(CL(c),CL(c)),key='totcost',fcstfont=F_BLUE)
+frow(cf,7,'Steel',fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'steel_pct',c)),indent=1)
+frow(cf,8,'Copper',fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'copper_pct',c)),indent=1)
+frow(cf,9,'Electrical & electronic components',fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'elec_pct',c)),indent=1)
+frow(cf,10,'Imported components',fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'imported_pct',c)),indent=1)
+frow(cf,11,'Other materials & consumables',fcst=lambda c:"=%s6*(1-%s-%s-%s-%s-%s-%s-%s-%s)"%(CL(c),XR(ASM,'ebitda_margin',c),XR(ASM,'emp_pct',c),XR(ASM,'subc_pct',c),XR(ASM,'sga_pct',c),XR(ASM,'steel_pct',c),XR(ASM,'copper_pct',c),XR(ASM,'elec_pct',c),XR(ASM,'imported_pct',c)),indent=1)
+frow(cf,12,'Subcontracting & erection',fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'subc_pct',c)),indent=1)
+frow(cf,13,'Total COGS',hist=lambda c:"=%s"%lnk(c,'cogs',HFS),fcst=lambda c:"=SUM(%s7:%s12)"%(CL(c),CL(c)),key='cogs',bold=True,fill=FILL_TOT)
+frow(cf,14,'Gross profit',hist=lambda c:"=%s"%lnk(c,'gross',HFS),fcst=lambda c:"=%s6-%s13"%(CL(c),CL(c)),key='gross',bold=True)
+section(cf,15,'B.  Operating expenses')
+frow(cf,16,'Employee cost',hist=lambda c:"=%s"%lnk(c,'emp',HFS),fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'emp_pct',c)),key='emp',indent=1)
+frow(cf,17,'Selling & distribution',fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'selling_pct',c)),indent=1)
+frow(cf,18,'Administrative expenses',fcst=lambda c:"=%s6*(%s-%s-%s)"%(CL(c),XR(ASM,'sga_pct',c),XR(ASM,'selling_pct',c),XR(ASM,'rnd_pct',c)),indent=1)
+frow(cf,19,'Research & development',fcst=lambda c:"=%s6*%s"%(CL(c),XR(ASM,'rnd_pct',c)),indent=1)
+frow(cf,20,'Selling, admin & R&D',hist=lambda c:"=%s"%lnk(c,'sga',HFS),fcst=lambda c:"=SUM(%s17:%s19)"%(CL(c),CL(c)),key='sga',bold=True)
+frow(cf,21,'Total operating expenses',hist=lambda c:"=%s"%lnk(c,'totopex',HFS),fcst=lambda c:"=%s16+%s20"%(CL(c),CL(c)),key='totopex',bold=True,fill=FILL_TOT)
+frow(cf,22,'EBITDA',hist=lambda c:"=%s"%lnk(c,'ebitda',HFS),fcst=lambda c:"=%s14-%s21"%(CL(c),CL(c)),key='ebitda',bold=True,fill=FILL_TOT)
+ah_label(cf,23,'EBITDA margin %')
+for c in ACOLS: put(cf,23,c,"=%s22/%s6"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_PCT,align=RGT)
+frow(cf,24,'Memo: total operating cost (COGS+OpEx)',hist=lambda c:"=%s"%lnk(c,'totcost',HFS),fcst=lambda c:"=%s13+%s21"%(CL(c),CL(c)),key='totcost',fcstfont=F_BLUE)
 freeze(cf,'B5')
-print("Revenue Build + Cost Forecast (gross-profit) built.")
+print("Revenue Build + Cost Forecast (granular) built.")
 
 
 # ===== 8. WORKING CAPITAL SCHEDULE =====
@@ -397,6 +420,12 @@ ah_label(wc,18,'(Increase)/decrease in NWC')
 for c in FCOLS: put(wc,18,c,"=-(%s17-%s17)"%(CL(c),CL(c-1)),font=F_BLUE,fmt=FMT_CR,align=RGT)
 reg(wc,'dnwc',18)
 frow(wc,19,'Memo: cash & bank (FY26 seed estimate)',seed=7000,fcst=None,key='cash_seed')
+section(wc,21,'Memo: current-asset composition (indicative, forecast)')
+frow(wc,22,'Inventory: raw materials & components (~45%)',fcst=lambda c:"=%s9*0.45"%CL(c),indent=1)
+frow(wc,23,'Inventory: work-in-progress (~35%)',fcst=lambda c:"=%s9*0.35"%CL(c),indent=1)
+frow(wc,24,'Inventory: finished goods & stores (~20%)',fcst=lambda c:"=%s9*0.20"%CL(c),indent=1)
+frow(wc,25,'Receivables: billed / trade (~70%)',fcst=lambda c:"=%s8*0.70"%CL(c),indent=1)
+frow(wc,26,'Receivables: unbilled / retention (~30%)',fcst=lambda c:"=%s8*0.30"%CL(c),indent=1)
 freeze(wc,'B5')
 
 # ===== 9. FIXED ASSET + 10. DEPRECIATION =====
@@ -583,8 +612,17 @@ ah_label(ff,63,'Memo: total borrowings (LT+ST)',italic=True)
 for c in ACOLS: put(ff,63,c,"=%s34+%s37"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT)
 reg(ff,'bor',63)
 put(ff,64,1,'Historical balance-sheet sub-lines are analyst estimates anchored exactly to reported totals (debtor/inventory/payable days; cash rolled from reported net cash flow).',font=F_NOTE)
+ah_label(ff,65,'Memo: Other NON-CURRENT ASSETS breakup (indicative)',bold=True)
+for lbl,share,rr in [('Deferred tax assets (~40%)',0.40,66),('Long-term trade & other receivables (~35%)',0.35,67),('Long-term loans, deposits & other (~25%)',0.25,68)]:
+    ah_label(ff,rr,lbl,indent=1,italic=True)
+    for c in ACOLS: put(ff,rr,c,"=%s51*%s"%(CL(c),share),font=F_BLUE,fmt=FMT_CR,align=RGT)
+ah_label(ff,69,'Memo: Other NON-CURRENT LIABILITIES breakup (indicative)',bold=True)
+for lbl,share,rr in [('Lease liabilities (~30%)',0.30,70),('Long-term provisions - warranty & employee benefits (~50%)',0.50,71),('Deferred tax liabilities & other (~20%)',0.20,72)]:
+    ah_label(ff,rr,lbl,indent=1,italic=True)
+    for c in ACOLS: put(ff,rr,c,"=%s35*%s"%(CL(c),share),font=F_BLUE,fmt=FMT_CR,align=RGT)
+put(ff,73,1,'Non-current breakup shares are indicative analyst estimates; verify against Annual Report notes.',font=F_NOTE)
 freeze(ff,'B5')
-print("Cash Flow + Forecast BS (grouped, history filled) built.")
+print("Cash Flow + Forecast BS (grouped, history filled, NC breakup) built.")
 
 
 # ===== 17. DCF VALUATION (FCFF) =====
@@ -827,8 +865,73 @@ c4=BarChart(); c4.title="FCFF (INR Cr, FY27-33)"; c4.height=7.5; c4.width=15; c4
 c4.add_data(Reference(dc,min_col=9,max_col=15,min_row=12,max_row=12),from_rows=True,titles_from_data=False)
 c4.set_categories(Reference(dc,min_col=9,max_col=15,min_row=4,max_row=4)); db.add_chart(c4,"E33")
 
+# ===== ASSUMPTIONS RATIONALE (basis for every driver) =====
+ART='Assumptions Rationale'; ar=wb.create_sheet(ART); ar.sheet_view.showGridLines=False
+ar.column_dimensions['A'].width=36; ar.column_dimensions['B'].width=18; ar.column_dimensions['C'].width=118
+put(ar,1,1,'ASSUMPTIONS RATIONALE  -  basis for every forecast driver',font=F_HDRW,fill=FILL_HDR)
+for c in range(2,4): ar.cell(row=1,column=c).fill=FILL_HDR
+put(ar,2,1,'Each driver documents: why reasonable | historical support | management guidance | macro / industry driver | sensitivity.',font=F_NOTE)
+for j,h in enumerate(['Driver','Base case','Rationale (historical support | management guidance | macro/industry driver | sensitivity)']):
+    put(ar,3,1+j,h,font=F_LBLB,fill=FILL_SUB,border=B_ALL,align=(CEN if j<2 else LFT) if 'LFT' in dir() else None)
+WRAP=Alignment(wrap_text=True,vertical='top')
+arr=[4]
+def aR(driver,val,rat,hdr=False):
+    r=arr[0]
+    if hdr:
+        put(ar,r,1,driver,font=F_SECT)
+        for c in range(1,4): ar.cell(row=r,column=c).fill=PatternFill('solid',fgColor='EAF0FA')
+        arr[0]+=1; return
+    put(ar,r,1,driver,font=F_LBLB); put(ar,r,2,val,font=F_BLACK,align=CEN)
+    cell=put(ar,r,3,rat,font=F_BLACK); cell.alignment=WRAP
+    ar.row_dimensions[r].height=46
+    for c in range(1,4): ar.cell(row=r,column=c).border=B_ALL
+    arr[0]+=1
+aR('REVENUE & ORDER BOOK','','',hdr=True)
+aR('Execution rate','16.5%->19.5%','Revenue recognised as a % of opening order book. Historically BHEL executed ~15-17% of opening OB p.a.; order book is ~7x revenue. Ramp reflects rising capacity utilisation (~65%->80%) and faster thermal execution as supply chains normalise. Sensitivity: +/-1pp ~ +/-Rs2,400-4,000 cr revenue.')
+aR('Order inflow','Rs78k->96k cr','FY25 record inflow Rs92,535 cr; FY26 ~Rs75,000 cr. Driven by ~80 GW thermal pipeline (NTPC/NLC/state gencos) to FY32, plus T&D, railways and defence diversification. Set conservatively below the FY25 peak; macro driver = power capex super-cycle.')
+aR('Revenue mix - Power','75%','BHEL core; power was ~75-80% of revenue historically (FY26 power Rs25,407 cr). Thermal ordering remains dominant near-term.')
+aR('Revenue mix - Industry','22%','Rising diversification (industrial systems, transportation, defence). Industry segment grew strongly in FY25-26; balance ~3% is exports/renewables.')
+aR('COSTS','','',hdr=True)
+aR('EBITDA margin','7.5%->12.0%','Historical FY24 3.0%, FY25 4.9%, FY26 6.9%. Expansion from operating leverage over a largely fixed employee/overhead base, better project mix and roll-off of legacy low-margin orders. Management targets low-teens; peer capital-goods margins 10-18%. Sensitivity: 1pp ~ Rs400-800 cr EBITDA.')
+aR('Steel (% rev)','12%','Boilers, turbines and structurals are steel-intensive. Key commodity exposure; +10% steel price ~ +1.2pp COGS. Reflects BHEL bill-of-materials.')
+aR('Copper (% rev)','5%','Generators, transformers and windings are copper-intensive. Exposed to LME copper prices.')
+aR('Electrical & electronic components','10%','Control systems, switchgear, instrumentation and electronics content in power equipment.')
+aR('Imported components','8%','High-tech sub-assemblies imported; FX and import-duty sensitive. Localisation drive aims to reduce this over time.')
+aR('Other materials & consumables','residual','Balancing item so that materials + subcontracting + opex reconcile to the target EBITDA margin (avoids double-counting).')
+aR('Subcontracting & erection','8.5%','Civil works and site erection largely outsourced; scales with project execution. Historical ~8-9%.')
+aR('Employee cost (% rev)','13.5%->10.5%','BHEL employee cost is structurally high (~Rs5,300-6,000 cr, broadly flat in absolute terms). Falls as a % as revenue scales (operating leverage); workforce declining ~33,500->25,500 via attrition.')
+aR('Selling & distribution','2.5%','Bid/marketing, logistics, liquidated-damages and warranty-related selling costs; consistent with historical SG&A composition.')
+aR('Administrative (% rev)','~2.5% (residual)','Corporate overheads; residual within total selling/admin so opex reconciles.')
+aR('Research & development','2.5%','BHEL discloses R&D at ~2.5% of turnover; strategic for supercritical/USC, hydrogen/electrolysers, defence and localisation.')
+aR('Depreciation rate','9.5% of opening net block','Consistent with historical D&A / net block (~9-10%); plant & machinery weighted asset base.')
+aR('Capex','Rs600-950 cr','Modernisation plus new capacity for renewables, defence and electrolysers. Historical capex Rs300-900 cr; internally funded.')
+aR('WORKING CAPITAL','','',hdr=True)
+aR('Receivable days','75','Historical 49-121; recent ~73-76. Large PSU/SEB customers but collections improving. Anchored to recent levels.')
+aR('Inventory days','210->190','Historical 212-333; long manufacturing/project cycle. Gradual improvement assumed from better execution and planning.')
+aR('Payable days','175','Historical 167-345; normalised to ~175 supplier credit.')
+aR('Contract assets (% rev)','23.5%','Unbilled revenue on long-cycle EPC projects under percentage-of-completion accounting.')
+aR('Contract liabilities / advances','35.5%','BHEL receives large customer advances on orders - a key working-capital funding source; scales with order activity.')
+aR('Other non-current assets','Rs15.5k->18.5k cr','Deferred tax assets (large, from past losses), long-term/legacy trade receivables and retention, long-term loans & deposits. Held roughly flat / slow growth. Breakup ~40% DTA / 35% LT receivables / 25% loans & deposits.')
+aR('Other non-current liabilities','Rs6.2k->7.4k cr','Lease liabilities, long-term provisions (warranty & employee benefits) and deferred tax liabilities. Breakup ~30% leases / 50% provisions / 20% DTL & other.')
+aR('Other current/NC growth','3% p.a.','Structural balance-sheet items grow slowly, not 1:1 with revenue, to avoid overstating working-capital drag.')
+aR('CWIP / Investments','Rs400 cr / Rs310-370 cr','CWIP steady-state low (capex flows quickly to assets); investments = JV/associate stakes, modest growth.')
+aR('CAPITAL STRUCTURE & TAX','','',hdr=True)
+aR('LT vs ST borrowings','35% LT / 65% ST','BHEL borrowings are largely short-term working-capital lines; ~35% assumed long-term/leases. Editable split.')
+aR('New borrowings / repayment','0 / Rs1,000 cr p.a.','Strong forecast FCF and large cash allow steady deleveraging; gross debt declines over the horizon.')
+aR('Interest rate','8.5%','Blended cost on borrowings; consistent with historical finance cost / average debt and the current rate environment.')
+aR('Tax rate','25%','BHEL on the new corporate-tax regime (~25.17%); normalised to 25%.')
+aR('Dividend payout','30%','CPSE/DIPAM policy (~30% of PAT or 5% of net worth); historical payout 30-33%.')
+aR('VALUATION (DCF)','','',hdr=True)
+aR('Risk-free rate','6.8%','~India 10-year G-Sec yield.')
+aR('Beta','1.25','BHEL is a high-beta cyclical capital-goods PSU; levered beta > 1.')
+aR('Equity risk premium','6.5%','India ERP ~6-7%.')
+aR('Cost of debt / weights','8.5% / 15% D, 85% E','Low leverage; target structure mostly equity. After-tax Kd used in WACC.')
+aR('Terminal growth','4.5%','Below long-run nominal GDP (~10-11%); conservative perpetuity for a mature franchise (~inflation + modest real growth).')
+aR('WACC (derived)','~13.6%','We*Ke + Wd*Kd*(1-t); high due to elevated equity beta. Tested on the Sensitivity sheet vs terminal growth.')
+freeze(ar,'A4')
+
 # ===== finalise: tab order, colours, save =====
-order=['Cover Page','Assumptions','Historical Financial Statements','Historical Ratio Analysis',
+order=['Cover Page','Assumptions','Assumptions Rationale','Historical Financial Statements','Historical Ratio Analysis',
  'Operational Drivers','Revenue Build-up','Cost Forecast','Working Capital Schedule','Fixed Asset Schedule',
  'Depreciation Schedule','Debt Schedule','Equity Schedule','Other Assets & Liabilities','Cash Flow Statement',
  'Forecast Financial Statements','Ratio Analysis','DCF Valuation','Relative Valuation','Sensitivity Analysis',
