@@ -1,149 +1,140 @@
 # -*- coding: utf-8 -*-
-"""Fill FY2027-FY2033 forecast into the user's BHEL FM.xlsx (PL & BS),
-deriving assumptions from their historical actuals. Adds Assumptions,
-Forecast Engine and Discrepancies sheets. Fully formula-driven & balancing."""
+"""Fill FY2027-FY2033 forecast into the user's BHEL FM.xlsx (PL & BS) from their
+actuals. Assumptions split into VARIABLE (Base/Best/Bear, driven by a Scenario
+Switch dropdown) and FIXED. Adds Assumptions, Forecast Engine, Discrepancies."""
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter as CL
+from openpyxl.worksheet.datavalidation import DataValidation
 
 PATH='/projects/sandbox/BHEL/BHEL FM.xlsx'
 wb=openpyxl.load_workbook(PATH)
-
-# forecast years in cols J..P (10..16); 2026 seed = col I (9)
-FC=list(range(10,17))           # 2027..2033
-YR=[2027,2028,2029,2030,2031,2032,2033]
-BLUE=Font(color='0000CC'); BLACK=Font(color='000000'); GRN=Font(color='008000')
-BOLD=Font(bold=True); HDRW=Font(color='FFFFFF',bold=True)
-NAVY=PatternFill('solid',fgColor='1F3864'); GOLD=PatternFill('solid',fgColor='FFF2CC')
-SUB=PatternFill('solid',fgColor='D9E1F2'); TOT=PatternFill('solid',fgColor='DDEBF7')
+FC=list(range(10,17)); YR=[2027,2028,2029,2030,2031,2032,2033]   # forecast cols J..P
+BLUE=Font(color='0000CC'); BLACK=Font(color='000000'); BOLD=Font(bold=True)
+GOLD=PatternFill('solid',fgColor='FFF2CC'); SUB=PatternFill('solid',fgColor='D9E1F2')
+TOT=PatternFill('solid',fgColor='DDEBF7'); LTBL=PatternFill('solid',fgColor='E7EEF8')
 RGT=Alignment(horizontal='right'); CEN=Alignment(horizontal='center')
 WRAP=Alignment(wrap_text=True,vertical='top')
 thin=Side(style='thin',color='BFBFBF'); BOX=Border(left=thin,right=thin,top=thin,bottom=thin)
 NF='#,##0.0;(#,##0.0)'; PF='0.0%'; DF='0'
 
-# -------------------------------------------------------------------
-# 1. ASSUMPTIONS sheet (drivers derived from the company's own history)
-# -------------------------------------------------------------------
+# ===================================================================
+# 1. ASSUMPTIONS  (variable scenarios + fixed)
+# ===================================================================
 if 'Assumptions' in wb.sheetnames: del wb['Assumptions']
-asm=wb.create_sheet('Assumptions')
-asm.sheet_view.showGridLines=False
-asm.column_dimensions['A'].width=2; asm.column_dimensions['B'].width=42
+asm=wb.create_sheet('Assumptions'); asm.sheet_view.showGridLines=False
+asm.column_dimensions['A'].width=2; asm.column_dimensions['B'].width=44; asm.column_dimensions['C'].width=11
 for c in FC: asm.column_dimensions[CL(c)].width=10
-asm.column_dimensions[CL(17)].width=70
-asm.cell(1,2,'FORECAST ASSUMPTIONS  -  derived from BHEL FY2020-FY2026 actuals').font=Font(bold=True,size=13,color='1F3864')
-asm.cell(3,2,'Driver').font=BOLD
-for j,c in enumerate(FC):
-    cell=asm.cell(3,c,YR[j]); cell.font=BOLD; cell.fill=SUB; cell.alignment=CEN; cell.border=BOX
-asm.cell(3,17,'Rationale (historical basis | driver | sensitivity)').font=BOLD
-A={}
-rr=[4]
-def arow(key,label,vals,fmt,rat):
-    r=rr[0]; asm.cell(r,2,label).font=Font(size=10)
+asm.column_dimensions[CL(17)].width=66
+asm.cell(1,2,'FORECAST ASSUMPTIONS  -  variable (scenario-driven) & fixed').font=Font(bold=True,size=13,color='1F3864')
+asm.cell(3,2,'Scenario Switch').font=Font(bold=True,size=11)
+sw=asm.cell(3,3,'Base'); sw.font=Font(bold=True,color='C00000'); sw.fill=GOLD; sw.alignment=CEN; sw.border=BOX
+dv=DataValidation(type='list',formula1='"Base,Best,Bear"',allow_blank=False); asm.add_data_validation(dv); dv.add(sw)
+asm.cell(3,5,'<- toggle Base / Best / Bear and the whole PL, BS & engine recalculate').font=Font(italic=True,size=9,color='808080')
+# active-scenario quick outputs (live from PL)
+asm.cell(4,5,'Active scenario FY2033E:').font=Font(italic=True,size=9,color='1F3864')
+asm.cell(4,7,"=\"Sales \"&TEXT('PL'!P5,\"#,##0\")&\"  |  EBITDA \"&TEXT('PL'!P12,\"#,##0\")&\"  |  PAT \"&TEXT('PL'!P20,\"#,##0\")").font=Font(italic=True,size=9,color='1F3864')
+SW='$C$3'; A={}
+def yhdr(r):
+    asm.cell(r,2,'ratios / INR Crore').font=Font(italic=True,size=9)
+    for j,c in enumerate(FC):
+        cell=asm.cell(r,c,YR[j]); cell.font=BOLD; cell.fill=SUB; cell.alignment=CEN; cell.border=BOX
+    asm.cell(r,17,'Rationale').font=BOLD
+asm.cell(6,2,'A.  VARIABLE ASSUMPTIONS  (Base / Best / Bear, selected by Scenario Switch)').font=Font(bold=True,color='1F3864')
+yhdr(7); R=[8]
+def vblock(key,label,base,best,bear,fmt,rat):
+    r=R[0]
+    asm.cell(r,2,label).font=Font(bold=True,size=10)
+    for j,c in enumerate(FC):
+        f='=IF(%s="Best",%s%d,IF(%s="Bear",%s%d,%s%d))'%(SW,CL(c),r+2,SW,CL(c),r+3,CL(c),r+1)
+        cell=asm.cell(r,c,f); cell.font=Font(bold=True,color='0000CC'); cell.number_format=fmt; cell.alignment=RGT; cell.fill=LTBL; cell.border=BOX
+    rc=asm.cell(r,17,rat); rc.font=Font(size=9,italic=True); rc.alignment=WRAP; asm.row_dimensions[r].height=40
+    for jj,(nm,vals) in enumerate([('Base',base),('Best',best),('Bear',bear)]):
+        r2=r+1+jj; asm.cell(r2,2,'   '+nm).font=Font(size=9,color='808080')
+        for j,c in enumerate(FC):
+            cell=asm.cell(r2,c,vals[j]); cell.font=BLACK; cell.fill=GOLD; cell.number_format=fmt; cell.alignment=RGT; cell.border=BOX
+    A[key]=r; R[0]=r+5
+vblock('growth','Revenue growth %',
+ [0.15,0.14,0.13,0.12,0.11,0.10,0.09],[0.18,0.17,0.16,0.14,0.13,0.12,0.11],[0.10,0.09,0.08,0.07,0.06,0.06,0.05],PF,
+ 'Demand driver. Base = order-book-supported double digits tapering; Best = faster execution/new ordering; Bear = slower power capex & execution delays.')
+vblock('gross','Gross margin %',
+ [0.325,0.330,0.335,0.340,0.340,0.345,0.350],[0.335,0.345,0.355,0.360,0.365,0.370,0.375],[0.310,0.310,0.315,0.315,0.320,0.320,0.325],PF,
+ 'Margin driver. Actual FY26 32.0%. Best = favourable mix + benign steel/copper; Bear = commodity inflation & competitive pricing.')
+vblock('ebitda','EBITDA margin %',
+ [0.080,0.090,0.100,0.110,0.115,0.120,0.125],[0.095,0.110,0.120,0.130,0.135,0.140,0.145],[0.065,0.070,0.078,0.085,0.090,0.095,0.100],PF,
+ 'Operating leverage. Actual FY26 6.9%. Best = strong leverage to low-/mid-teens; Bear = limited leverage if growth disappoints.')
+vblock('recv_days','Receivable days',
+ [73,73,73,72,72,72,72],[70,68,66,65,64,63,62],[80,82,84,85,86,86,86],DF,
+ 'Collections cycle. Best = faster realisation from PSU/SEB customers; Bear = stretched receivables in a weak cycle.')
+vblock('inv_days','Inventory days (on COGS)',
+ [210,205,202,200,198,195,193],[195,188,182,178,175,172,170],[225,225,222,220,218,215,213],DF,
+ 'Project inventory cycle. Best = tighter planning/execution; Bear = slow-moving project inventory build-up.')
+# ---- fixed ----
+P=[R[0]+1]
+asm.cell(P[0],2,'B.  FIXED ASSUMPTIONS  (structural / policy - constant across scenarios)').font=Font(bold=True,color='1F3864'); P[0]+=1
+yhdr(P[0]); P[0]+=1
+def frow(key,label,vals,fmt,rat):
+    r=P[0]; asm.cell(r,2,label).font=Font(size=10)
     for j,c in enumerate(FC):
         cell=asm.cell(r,c,vals[j]); cell.font=BLACK; cell.fill=GOLD; cell.number_format=fmt; cell.alignment=RGT; cell.border=BOX
-    rc=asm.cell(r,17,rat); rc.font=Font(size=9,italic=True); rc.alignment=WRAP
-    asm.row_dimensions[r].height=42
-    A[key]=r; rr[0]+=1
-arow('growth','Revenue growth %',[0.15,0.14,0.13,0.12,0.11,0.10,0.09],PF,
- 'FY24-26 growth 2.3%/18.6%/19.2%. Record order book ~Rs2.4 lakh cr (~7x sales) underpins double-digit growth; tapered as base rises.')
-arow('gross','Gross margin %',[0.325,0.330,0.335,0.340,0.340,0.345,0.350],PF,
- 'Actual gross margin rose to 32.0% (FY26) from ~27%. Mix shift to higher-value execution & easing input costs; gradual expansion.')
-arow('emp','Employee cost % of sales',[0.185,0.180,0.175,0.170,0.165,0.160,0.155],PF,
- 'Employee cost ~flat in absolute terms (Rs5.4-6.5k cr) but falls as % as sales scale (FY20 25.3% -> FY26 19.1%); workforce declining via attrition.')
-arow('ebitda','EBITDA margin %',[0.080,0.090,0.100,0.110,0.115,0.120,0.125],PF,
- 'Actual EBITDA margin FY24 3.0% -> FY26 6.9%. Operating leverage on fixed overheads lifts margin toward low-teens (mgmt guidance).')
-arow('oth_inc','Other income % of sales',[0.022]*7,PF,
- 'FY26 other income Rs868.7 cr = 2.6% of sales (treasury income on large cash). Held ~2.2% conservatively.')
-arow('recv_days','Receivable days',[73,73,73,72,72,72,72],DF,
- 'Actual FY26 73 days (FY20 121 -> improving). Large PSU/SEB customers; collections stable.')
-arow('inv_days','Inventory days (on COGS)',[210,205,202,200,198,195,193],DF,
- 'Actual FY26 ~212 days; long manufacturing/project cycle. Gradual improvement from better planning/execution.')
-arow('pay_days','Payable days (on COGS)',[167]*7,DF,
- 'Actual FY26 ~167 days supplier credit; held flat.')
-arow('oca_pct','Other current assets % of sales',[0.57,0.56,0.55,0.54,0.53,0.52,0.51],PF,
- 'FY26 other current assets Rs19,458 cr = 57.6% of sales (unbilled/contract assets, advances). Held slightly declining.')
-arow('ocl_pct','Other current liabilities % of sales',[0.40,0.40,0.39,0.39,0.38,0.38,0.37],PF,
- 'FY26 other current liabilities Rs13,792 cr = 40.8% of sales (customer advances, provisions). Key WC funding source.')
-arow('onca_g','Other non-current assets growth %',[0.03]*7,PF,
- 'FY26 Rs20,935 cr (deferred tax assets, long-term/legacy receivables). Structural; grows slowly, not 1:1 with sales.')
-arow('oncl_g','Other non-current liabilities growth %',[0.04]*7,PF,
- 'FY26 Rs15,214 cr (long-term advances/deferred). Grew strongly historically; moderated to 4%.')
-arow('ltprov_g','LT provisions growth %',[0.03]*7,PF,
- 'FY26 Rs2,355 cr (warranty & employee-benefit provisions). Grows ~with activity.')
-arow('capex','Capital expenditure (Rs cr)',[600,700,750,800,850,900,950],NF,
- 'Modernisation + capacity for renewables/defence/electrolysers. Historical capex Rs300-900 cr; internally funded.')
-arow('dep_rate','Depreciation % of opening net block',[0.095]*7,PF,
- 'Consistent with historical D&A / net block (~9-10%).')
-arow('cwip','CWIP closing (Rs cr)',[400]*7,NF,'Steady-state low; capex flows quickly to assets.')
-arow('invst','Investments closing (Rs cr)',[310,320,330,340,350,360,370],NF,'JV/associate stakes; modest growth.')
-arow('lt_pct','LT borrowings % of total debt',[0.02]*7,PF,
- 'Actual FY26 LT borrowings only Rs168 cr (~2%); BHEL debt is almost entirely short-term working-capital lines.')
-arow('repay','Debt repayment (Rs cr)',[500]*7,NF,
- 'Strong cash & FCF allow gradual reduction of working-capital borrowings.')
-arow('int_rate','Interest rate on opening debt %',[0.085]*7,PF,
- 'Blended ~ FY26 finance cost / debt; current rate environment.')
-arow('tax','Effective tax rate %',[0.25]*7,PF,'New corporate-tax regime (~25.17%); normalised 25%.')
-arow('payout','Dividend payout % of PAT',[0.30]*7,PF,'CPSE/DIPAM policy ~30%; historical 30-33%.')
-# WACC block
-wr=rr[0]+1
-asm.cell(wr,2,'WACC & valuation').font=Font(bold=True,color='1F3864'); wr+=1
-def single(key,label,val,fmt,rat=''):
-    global wr; asm.cell(wr,2,label).font=Font(size=10)
-    cell=asm.cell(wr,3,val); cell.font=BLACK; cell.fill=GOLD; cell.number_format=fmt; cell.alignment=RGT; cell.border=BOX
-    if rat: c=asm.cell(wr,17,rat); c.font=Font(size=9,italic=True); c.alignment=WRAP
-    A[key]=('s',wr); wr+=1
-asm.column_dimensions['C'].width=10
-single('rf','Risk-free rate (10Y G-Sec)',0.068,PF,'~India 10-year G-Sec yield.')
-single('beta','Levered beta',1.25,'0.00','High-beta cyclical capital-goods PSU.')
-single('erp','Equity risk premium',0.065,PF,'India ERP ~6-7%.')
-single('kd','Pre-tax cost of debt',0.085,PF)
-single('wd','Weight of debt',0.10,PF,'Low leverage / net cash; small debt weight.')
-single('we','Weight of equity',0.90,PF)
-single('tg','Terminal growth',0.045,PF,'Below long-run nominal GDP; conservative perpetuity.')
-asm.cell(wr,2,'Cost of equity (Rf+B*ERP)').font=Font(size=10,bold=True)
-asm.cell(wr,3,"=C%d+C%d*C%d"%(A['rf'][1],A['beta'][1],A['erp'][1])).number_format=PF; A['ke']=('s',wr); asm.cell(wr,3).font=BLUE; wr+=1
-asm.cell(wr,2,'WACC').font=Font(size=10,bold=True)
-asm.cell(wr,3,"=C%d*C%d+C%d*C%d*(1-C%d)"%(A['we'][1],A['ke'][1],A['wd'][1],A['kd'][1],A['tax'] if False else A['rf'][1])).number_format=PF
-# fix WACC tax ref to tax rate single? use 0.25 constant
-asm.cell(wr,3,"=C%d*C%d+C%d*C%d*0.75"%(A['we'][1],A['ke'][1],A['wd'][1],A['kd'][1])).number_format=PF
-A['wacc']=('s',wr); asm.cell(wr,3).font=BLUE; wr+=1
-single('shares','Shares outstanding (cr)',348.2,NF)
-single('price','Current price (Rs)',402.7,'0.00')
-print("Assumptions sheet built. rows:",A)
-wb.save(PATH)
-print("saved stage1")
+    rc=asm.cell(r,17,rat); rc.font=Font(size=9,italic=True); rc.alignment=WRAP; asm.row_dimensions[r].height=28
+    A[key]=r; P[0]+=1
+frow('emp','Employee cost % of sales',[0.185,0.180,0.175,0.170,0.165,0.160,0.155],PF,'Largely fixed cost base; declines as % as sales scale (FY26 19.1%).')
+frow('oth_inc','Other income % of sales',[0.022]*7,PF,'Treasury income on cash (~2.2%).')
+frow('pay_days','Payable days (on COGS)',[167]*7,DF,'Supplier credit ~167 days (FY26 actual).')
+frow('oca_pct','Other current assets % of sales',[0.57,0.56,0.55,0.54,0.53,0.52,0.51],PF,'Unbilled/contract assets & advances; ~58% of sales declining.')
+frow('ocl_pct','Other current liabilities % of sales',[0.40,0.40,0.39,0.39,0.38,0.38,0.37],PF,'Customer advances & provisions; key WC funding (~41%).')
+frow('onca_g','Other non-current assets growth %',[0.03]*7,PF,'Deferred tax assets, legacy LT receivables; slow growth.')
+frow('oncl_g','Other non-current liabilities growth %',[0.04]*7,PF,'Long-term advances/deferred; moderate growth.')
+frow('ltprov_g','LT provisions growth %',[0.03]*7,PF,'Warranty & employee-benefit provisions.')
+frow('capex','Capital expenditure (Rs cr)',[600,700,750,800,850,900,950],NF,'Modernisation + renewables/defence capacity; internally funded.')
+frow('dep_rate','Depreciation % of opening net block',[0.095]*7,PF,'~ historical D&A / net block (9-10%).')
+frow('cwip','CWIP closing (Rs cr)',[400]*7,NF,'Steady-state low.')
+frow('invst','Investments closing (Rs cr)',[310,320,330,340,350,360,370],NF,'JV/associate stakes.')
+frow('lt_pct','LT borrowings % of total debt',[0.02]*7,PF,'BHEL debt almost entirely short-term (FY26 LT only Rs168 cr).')
+frow('repay','Debt repayment (Rs cr)',[500]*7,NF,'Gradual reduction of WC borrowings from strong cash.')
+frow('int_rate','Interest rate on opening debt %',[0.085]*7,PF,'Blended ~ FY26 finance cost / debt.')
+frow('tax','Effective tax rate %',[0.25]*7,PF,'New corporate-tax regime (~25%).')
+frow('payout','Dividend payout % of PAT',[0.30]*7,PF,'CPSE/DIPAM policy ~30%.')
+# ---- WACC singles ----
+P[0]+=1; asm.cell(P[0],2,'C.  WACC & VALUATION (fixed)').font=Font(bold=True,color='1F3864'); P[0]+=1
+def single(key,label,val,fmt):
+    r=P[0]; asm.cell(r,2,label).font=Font(size=10)
+    cell=asm.cell(r,3,val); cell.font=BLACK; cell.fill=GOLD; cell.number_format=fmt; cell.alignment=RGT; cell.border=BOX
+    A[key]=('s',r); P[0]+=1
+single('rf','Risk-free rate',0.068,PF); single('beta','Levered beta',1.25,'0.00')
+single('erp','Equity risk premium',0.065,PF); single('kd','Pre-tax cost of debt',0.085,PF)
+single('wd','Weight of debt',0.10,PF); single('we','Weight of equity',0.90,PF)
+single('tg','Terminal growth',0.045,PF)
+asm.cell(P[0],2,'Cost of equity').font=Font(size=10,bold=True)
+asm.cell(P[0],3,"=C%d+C%d*C%d"%(A['rf'][1],A['beta'][1],A['erp'][1])).number_format=PF; A['ke']=('s',P[0]); P[0]+=1
+asm.cell(P[0],2,'WACC').font=Font(size=10,bold=True)
+asm.cell(P[0],3,"=C%d*C%d+C%d*C%d*0.75"%(A['we'][1],A['ke'][1],A['wd'][1],A['kd'][1])).number_format=PF; A['wacc']=('s',P[0]); P[0]+=1
+single('shares','Shares outstanding (cr)',348.2,NF); single('price','Current price (Rs)',402.7,'0.00')
+print("Assumptions built.")
 
-
-# -------------------------------------------------------------------
-# 2. FORECAST ENGINE sheet (schedules; cols I..P = 2026 seed..2033)
-# -------------------------------------------------------------------
+# ===================================================================
+# 2. FORECAST ENGINE
+# ===================================================================
 if 'Forecast Engine' in wb.sheetnames: del wb['Forecast Engine']
 fe=wb.create_sheet('Forecast Engine'); fe.sheet_view.showGridLines=False
 fe.column_dimensions['A'].width=2; fe.column_dimensions['B'].width=34
 for c in range(9,17): fe.column_dimensions[CL(c)].width=11
-fe.cell(1,2,'FORECAST ENGINE  (2026 seed linked to actuals; 2027-2033 driven by Assumptions)').font=Font(bold=True,size=12,color='1F3864')
-fe.cell(3,2,'INR Crore').font=Font(italic=True)
+fe.cell(1,2,'FORECAST ENGINE  (2026 seed = actuals; 2027-2033 driven by Assumptions/Scenario)').font=Font(bold=True,size=12,color='1F3864')
 for j,c in enumerate(range(9,17)):
     cell=fe.cell(3,c,2026+j); cell.font=BOLD; cell.fill=SUB; cell.alignment=CEN; cell.border=BOX
 def ad(key,c): return "'Assumptions'!%s%d"%(CL(c),A[key])
 def E(r,c,f):
     cell=fe.cell(r,c,f); cell.font=BLUE; cell.number_format=NF; cell.alignment=RGT
-def lbl(r,t,bold=False): fe.cell(r,2,t).font=Font(bold=bold,size=10)
-ALL=range(9,17); FCc=range(10,17)
+def lbl(r,t,b=False): fe.cell(r,2,t).font=Font(bold=b,size=10)
 rows={'Revenue':4,'COGS':5,'Gross':6,'Employee':7,'EBITDA':8,'SGA':9,'NBopen':11,'Capex':12,'Dep':13,
  'NBclose':14,'EBIT':15,'Dopen':17,'Repay':18,'Dclose':19,'LTbor':20,'STbor':21,'Int':22,'OthInc':23,
  'PBT':24,'Tax':25,'PAT':26,'Div':27,'ResOpen':29,'ResClose':30,'Recv':32,'Inv':33,'Pay':34,'OCA':35,
  'OCL':36,'ONCA':37,'ONCL':38,'LTprov':39,'CWIP':40,'Invst':41,'NWC':42,'dNWC':43,'CFO':45,'CFI':46,
  'CFF':47,'NetCF':48,'CashOpen':49,'CashClose':50}
-for k,r in rows.items(): lbl(r,k,bold=k in('Revenue','Gross','EBITDA','EBIT','PBT','PAT','NetCF','CashClose'))
-fe.cell(10,2,'-- Fixed assets --').font=Font(italic=True,size=9)
-fe.cell(16,2,'-- Debt / P&L below EBIT --').font=Font(italic=True,size=9)
-fe.cell(28,2,'-- Equity --').font=Font(italic=True,size=9)
-fe.cell(31,2,'-- Working capital --').font=Font(italic=True,size=9)
-fe.cell(44,2,'-- Cash flow --').font=Font(italic=True,size=9)
-for c in ALL:
+for k,r in rows.items(): lbl(r,k,b=k in('Revenue','Gross','EBITDA','EBIT','PBT','PAT','NetCF','CashClose'))
+for c in range(9,17):
     p=CL(c-1); cc=CL(c)
-    # Revenue
     E(rows['Revenue'],c, "='PL'!I5" if c==9 else "=%s4*(1+%s)"%(p,ad('growth',c)))
     E(rows['COGS'],c, "=-'PL'!I6" if c==9 else "=%s4*(1-%s)"%(cc,ad('gross',c)))
     E(rows['Gross'],c, "=%s4-%s5"%(cc,cc))
@@ -187,75 +178,48 @@ for c in ALL:
         E(rows['NetCF'],c, "=%s45+%s46+%s47"%(cc,cc,cc))
     E(rows['CashOpen'],c, "='BS'!I41" if c==9 else "=%s50"%p)
     E(rows['CashClose'],c, "='BS'!I41" if c==9 else "=%s49+%s48"%(cc,cc))
-fe.sheet_view.tabSelected=False
 
-# -------------------------------------------------------------------
-# 3. Fill PL & BS forecast columns J..P with formulas -> engine
-# -------------------------------------------------------------------
+# ===================================================================
+# 3. Fill PL & BS forecast cols J..P
+# ===================================================================
 pl=wb['PL']; bs=wb['BS']
 def setf(ws,r,c,f,bold=False,fill=None):
     cell=ws.cell(r,c,f); cell.font=Font(color='0000CC',bold=bold); cell.number_format=NF; cell.alignment=RGT
     if fill: cell.fill=fill
-for c in FCc:
+for c in FC:
     cc=CL(c); g="='Forecast Engine'!%s"%cc
-    # PL (their sign convention)
-    setf(pl,5,c, g+"4", bold=True)
-    setf(pl,6,c, "=-'Forecast Engine'!%s5"%cc)
-    setf(pl,7,c, "=%s5+%s6"%(cc,cc), bold=True)
-    setf(pl,9,c, "=-'Forecast Engine'!%s7"%cc)
-    setf(pl,10,c, "=-'Forecast Engine'!%s9"%cc)
-    setf(pl,11,c, "=%s9+%s10"%(cc,cc), bold=True)
-    setf(pl,12,c, "=%s7+%s11"%(cc,cc), bold=True, fill=TOT)
-    setf(pl,13,c, "=-'Forecast Engine'!%s13"%cc)
-    setf(pl,14,c, "=%s12+%s13"%(cc,cc), bold=True)
-    setf(pl,15,c, g+"23")
-    setf(pl,16,c, "=-'Forecast Engine'!%s22"%cc)
-    setf(pl,17,c, "=%s14+%s15+%s16"%(cc,cc,cc), bold=True)
-    setf(pl,18,c, "=-'Forecast Engine'!%s25"%cc)
-    setf(pl,19,c, 0)
-    setf(pl,20,c, "=%s17+%s18+%s19"%(cc,cc,cc), bold=True, fill=TOT)
-    # BS
-    setf(bs,8,c, "=%s"%asg('shares') if False else 696.4)
-    setf(bs,9,c, g+"30")
-    setf(bs,10,c, "=%s8+%s9"%(cc,cc), bold=True)
-    setf(bs,14,c, g+"20")
-    setf(bs,15,c, g+"39")
-    setf(bs,16,c, g+"38")
-    setf(bs,17,c, "=%s14+%s15+%s16"%(cc,cc,cc), bold=True)
-    setf(bs,19,c, g+"21")
-    setf(bs,20,c, g+"34")
-    setf(bs,21,c, g+"36")
-    setf(bs,22,c, "=%s19+%s20+%s21"%(cc,cc,cc), bold=True)
-    setf(bs,23,c, "=%s17+%s22"%(cc,cc), bold=True)
-    setf(bs,25,c, "=%s10+%s23"%(cc,cc), bold=True, fill=TOT)
-    setf(bs,30,c, g+"14")
-    setf(bs,31,c, g+"40")
-    setf(bs,32,c, g+"41")
-    setf(bs,33,c, "=%s30+%s31+%s32"%(cc,cc,cc), bold=True)
-    setf(bs,34,c, g+"37")
-    setf(bs,35,c, "=%s33+%s34"%(cc,cc), bold=True)
-    setf(bs,38,c, g+"32")
-    setf(bs,39,c, g+"33")
-    setf(bs,40,c, g+"35")
-    setf(bs,41,c, g+"50")
-    setf(bs,42,c, "=%s38+%s39+%s40+%s41"%(cc,cc,cc,cc), bold=True)
-    setf(bs,44,c, "=%s35+%s42"%(cc,cc), bold=True, fill=TOT)
-    setf(bs,47,c, "=%s44-%s25"%(cc,cc))  # balance check (row 47 'Test')
+    setf(pl,5,c, g+"4", True); setf(pl,6,c, "=-'Forecast Engine'!%s5"%cc)
+    setf(pl,7,c, "=%s5+%s6"%(cc,cc), True)
+    setf(pl,9,c, "=-'Forecast Engine'!%s7"%cc); setf(pl,10,c, "=-'Forecast Engine'!%s9"%cc)
+    setf(pl,11,c, "=%s9+%s10"%(cc,cc), True); setf(pl,12,c, "=%s7+%s11"%(cc,cc), True, TOT)
+    setf(pl,13,c, "=-'Forecast Engine'!%s13"%cc); setf(pl,14,c, "=%s12+%s13"%(cc,cc), True)
+    setf(pl,15,c, g+"23"); setf(pl,16,c, "=-'Forecast Engine'!%s22"%cc)
+    setf(pl,17,c, "=%s14+%s15+%s16"%(cc,cc,cc), True); setf(pl,18,c, "=-'Forecast Engine'!%s25"%cc)
+    setf(pl,19,c, 0); setf(pl,20,c, "=%s17+%s18+%s19"%(cc,cc,cc), True, TOT)
+    setf(bs,8,c, 696.4); setf(bs,9,c, g+"30"); setf(bs,10,c, "=%s8+%s9"%(cc,cc), True)
+    setf(bs,14,c, g+"20"); setf(bs,15,c, g+"39"); setf(bs,16,c, g+"38")
+    setf(bs,17,c, "=%s14+%s15+%s16"%(cc,cc,cc), True)
+    setf(bs,19,c, g+"21"); setf(bs,20,c, g+"34"); setf(bs,21,c, g+"36")
+    setf(bs,22,c, "=%s19+%s20+%s21"%(cc,cc,cc), True); setf(bs,23,c, "=%s17+%s22"%(cc,cc), True)
+    setf(bs,25,c, "=%s10+%s23"%(cc,cc), True, TOT)
+    setf(bs,30,c, g+"14"); setf(bs,31,c, g+"40"); setf(bs,32,c, g+"41")
+    setf(bs,33,c, "=%s30+%s31+%s32"%(cc,cc,cc), True); setf(bs,34,c, g+"37")
+    setf(bs,35,c, "=%s33+%s34"%(cc,cc), True)
+    setf(bs,38,c, g+"32"); setf(bs,39,c, g+"33"); setf(bs,40,c, g+"35"); setf(bs,41,c, g+"50")
+    setf(bs,42,c, "=%s38+%s39+%s40+%s41"%(cc,cc,cc,cc), True); setf(bs,44,c, "=%s35+%s42"%(cc,cc), True, TOT)
+    setf(bs,47,c, "=%s44-%s25"%(cc,cc))
 bs.cell(47,2,'Balance check (TA - TE&L)').font=Font(italic=True,size=9)
 
-# -------------------------------------------------------------------
-# 4. DISCREPANCIES sheet
-# -------------------------------------------------------------------
+# ===================================================================
+# 4. DISCREPANCIES
+# ===================================================================
 if 'Discrepancies' in wb.sheetnames: del wb['Discrepancies']
-dq=wb.create_sheet('Discrepancies')
-dq.sheet_view.showGridLines=False
-dq.column_dimensions['A'].width=2
-dq.column_dimensions['B'].width=30
+dq=wb.create_sheet('Discrepancies'); dq.sheet_view.showGridLines=False
+dq.column_dimensions['A'].width=2; dq.column_dimensions['B'].width=30
 for c in range(3,11): dq.column_dimensions[CL(c)].width=11
 dq.column_dimensions[CL(11)].width=60
 dq.cell(1,2,'DATA DISCREPANCIES  (BS sheet vs Data Sheet/Screener vs Moneycontrol)').font=Font(bold=True,size=12,color='C00000')
-hdr=['Item','FY20','FY21','FY22','FY23','FY24','FY25','FY26','Comment']
-for j,h in enumerate(hdr):
+for j,h in enumerate(['Item','FY20','FY21','FY22','FY23','FY24','FY25','FY26','Comment']):
     cell=dq.cell(3,2+j,h); cell.font=BOLD; cell.fill=SUB; cell.alignment=CEN; cell.border=BOX
 def drow(r,item,vals,comment):
     dq.cell(r,2,item).font=Font(size=10)
@@ -272,18 +236,17 @@ drow(10,'Borrowings (BS LT+ST)',[4947.9,4849.3,4745.0,5385.0,8808.0,8795.0,8187.
 drow(11,'Borrowings (Screener)',[5080.0,4950.9,4829.9,5453.5,8856.5,9014.6,8186.9],'Screener; Rs50-220 cr higher FY20-25; FY26 matches.')
 dq.cell(13,2,'Other findings').font=Font(bold=True,color='C00000')
 notes=[
- "PL 'Selling and admin' is a residual (Gross - Employee - EBITDA): it turns POSITIVE in FY22 (+510.6) and FY23 (+351.1) because it absorbs Screener's volatile 'Other Expenses' (provision write-backs). EBITDA/EBIT/PBT/PAT are unaffected and correct.",
- "FY23 Cash differs by Rs55 cr (BS sheet 6,642.6 vs Data Sheet 6,698.1).",
- "FY26 cash is Rs11,866.6 cr against borrowings of Rs8,187 cr => BHEL is NET CASH ~Rs3,680 cr. Forecast/valuation uses this (an earlier estimate of Rs7,000 cr was too low).",
- "RESOLUTION: forecast is built on your BS-sheet (Moneycontrol) line items, which are internally consistent (Assets = Liabilities each year) and reconcile to Screener in FY26 - the seed year for the forecast.",
+ "PL 'Selling and admin' is a residual (Gross - Employee - EBITDA): turns POSITIVE in FY22 (+510.6) & FY23 (+351.1) as it absorbs Screener's volatile 'Other Expenses'. EBITDA/EBIT/PBT/PAT are unaffected and correct.",
+ "FY23 Cash differs by Rs55 cr (BS 6,642.6 vs Data Sheet 6,698.1).",
+ "FY26 cash Rs11,866.6 cr vs debt Rs8,187 cr => BHEL is NET CASH ~Rs3,680 cr (used in forecast).",
+ "RESOLUTION: forecast built on your BS-sheet (Moneycontrol) line items - internally balanced and reconciling to Screener in FY26 (the seed year).",
 ]
 rn=14
 for t in notes:
     c=dq.cell(rn,2,t); c.font=Font(size=9,italic=True); c.alignment=WRAP
     dq.merge_cells(start_row=rn,start_column=2,end_row=rn,end_column=11); dq.row_dimensions[rn].height=42; rn+=1
 
-# order sheets: put Assumptions & Forecast Engine & Discrepancies sensibly
 order=['Data Sheet','Sheet1','Assumptions','Forecast Engine','PL','BS','Discrepancies']
 wb._sheets.sort(key=lambda s: order.index(s.title) if s.title in order else 99)
 wb.save(PATH)
-print("SAVED forecast into BHEL FM.xlsx")
+print("SAVED with scenario switch.")
