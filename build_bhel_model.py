@@ -160,7 +160,7 @@ vaset('ebitda_margin','EBITDA margin (% revenue)',
 put(asm,rowA,1,'B.  FIXED ASSUMPTIONS  (structural / policy - constant across scenarios)',font=F_SECT); rowA+=1
 yhdr(asm,rowA,'ratios / INR Crore'); rowA+=1
 aset('consol_uplift','Consolidation uplift (consol vs standalone rev) %',[0.02]*7,FMT_PCT,note='Subsidiary/JV contribution to revenue; historical 0-6% (FY26 ~0%).')
-aset('oth_inc_pct','Other income (% revenue)',[0.018]*7,FMT_PCT)
+aset('oth_inc_pct','Other income (% revenue)',[0.024]*7,FMT_PCT)
 aset('emp_pct','Employee cost (% revenue)',[0.185,0.178,0.170,0.163,0.155,0.148,0.140],FMT_PCT)
 aset('subc_pct','Subcontracting & erection (% revenue, in COGS)',[0.085]*7,FMT_PCT)
 aset('sga_pct','Selling & admin (% revenue)',[0.075]*7,FMT_PCT)
@@ -174,11 +174,11 @@ aset('power_mix','Revenue mix: Power segment %',[0.75]*7,FMT_PCT)
 aset('industry_mix','Revenue mix: Industry segment %',[0.22]*7,FMT_PCT)
 aset('capex','Capital expenditure',[600,700,750,800,850,900,950],FMT_CR)
 aset('dep_rate','Depreciation rate (% opening net block)',[0.095]*7,FMT_PCT)
-aset('recv_days','Trade receivable days (vs revenue)',[74]*7,FMT_DAYS)
-aset('inv_days','Inventory days (vs COGS)',[210,206,203,200,198,196,195],FMT_DAYS)
+aset('recv_days','Trade receivable days (vs revenue)',[74,73,72,71,70,69,68],FMT_DAYS)
+aset('inv_days','Inventory days (vs COGS)',[210,207,204,201,198,195,192],FMT_DAYS)
 aset('pay_days','Trade payable days (vs COGS)',[167,166,165,164,163,162,160],FMT_DAYS)
-aset('ca_pct','Contract assets - current (% revenue)',[0.45]*7,FMT_PCT)
-aset('cl_pct','Contract liabilities / advances - current (% revenue)',[0.27]*7,FMT_PCT)
+aset('ca_pct','Contract assets - current (% revenue)',[0.45,0.44,0.43,0.42,0.41,0.40,0.39],FMT_PCT)
+aset('cl_pct','Contract liabilities / advances - current (% revenue)',[0.27,0.28,0.28,0.29,0.29,0.30,0.30],FMT_PCT)
 aset('oca_g','Other current/non-curr assets growth %',[0.03]*7,FMT_PCT)
 aset('ol_g','Provisions & other liabilities growth %',[0.03]*7,FMT_PCT)
 aset('cwip','Capital work-in-progress (closing)',[400]*7,FMT_CR)
@@ -186,9 +186,9 @@ aset('investments','Investments (closing)',[310,320,330,340,350,360,370],FMT_CR)
 aset('tax_rate','Effective tax rate',[0.25]*7,FMT_PCT)
 aset('div_payout','Dividend payout (% PAT)',[0.30]*7,FMT_PCT)
 aset('new_borrow','New borrowings drawn',[0]*7,FMT_CR)
-aset('debt_repay','Debt repayment',[1000]*7,FMT_CR)
+aset('debt_repay','Debt repayment',[0]*7,FMT_CR)
 aset('int_rate','Interest rate on opening debt',[0.085]*7,FMT_PCT)
-aset('lt_debt_pct','LT borrowings (% of total debt)',[0.35]*7,FMT_PCT)
+aset('lt_debt_pct','LT borrowings (% of total debt)',[0.02]*7,FMT_PCT)
 aset('other_nca','Other non-current assets (closing)',[21563,22210,22876,23562,24269,24997,25747],FMT_CR)
 aset('other_ncl','Other non-current liabilities (closing)',[18096,18639,19198,19774,20367,20978,21607],FMT_CR)
 wr=rowA+1; put(asm,wr,1,'WACC & valuation inputs',font=F_SECT); wr+=1
@@ -699,7 +699,7 @@ def dsum(r,label,formula,fmt=FMT_CR,bold=False,key=None,fill=None,font=F_BLUE):
 dsum(18,'Sum of PV of explicit FCFF (FY27-33)',"=SUM(I15:O15)",bold=True,key='sumpv')
 dsum(19,'WACC',"=%s"%XR(ASM,'wacc',3),fmt=FMT_PCT,font=F_GREEN,key='wacc')
 dsum(20,'Terminal growth rate (g)',"=%s"%XR(ASM,'term_g',3),fmt=FMT_PCT,font=F_GREEN,key='termg')
-dsum(21,'Terminal value (Gordon growth)',"=O12*(1+C20)/(C19-C20)",key='tv')
+dsum(21,'Terminal value (Gordon growth, normalized WC)',"=(O8+O9+O10-C20*'Working Capital Schedule'!O17)*(1+C20)/(C19-C20)",key='tv')
 dsum(22,'PV of terminal value',"=C21*O14",key='pvtv')
 dsum(23,'Enterprise value (EV)',"=C18+C22",bold=True,fill=FILL_TOT,key='ev')
 dsum(24,'Less: net debt (FY26 debt - cash)',"=-(%s-%s)"%(FR('bor',8),FR('cash',8)),key='netdebt',font=F_GREEN)
@@ -712,38 +712,53 @@ dc.column_dimensions['C'].width=16; freeze(dc,'B5')
 
 # ===== 18. RELATIVE VALUATION =====
 RV='Relative Valuation'; rv=newsheet(RV)
-put(rv,2,1,'Peer trading multiples are INDICATIVE; refresh with live market data before use.',font=F_NOTE)
-for col,w in {'A':30,'B':14,'C':14,'D':14,'E':14,'F':14}.items(): rv.column_dimensions[col].width=w
-section(rv,4,'A.  Peer trading multiples (indicative)',span=6)
-for j,h in enumerate(['Peer company','EV/Revenue (x)','EV/EBITDA (x)','P/E (x)','P/B (x)','Div yield %']):
+put(rv,2,1,'Peer multiples reflect current (2025-26) market levels. BHEL is valued at a QUALITY DISCOUNT to premium MNC peers (Siemens/ABB ~50x P/E) given its lower margins (~8% vs 15-18%), low ROE (~2-8% vs 15-30%) and PSU profile; the closest large comp is L&T (~20x EV/EBITDA, ~33x P/E). EV/Revenue is intentionally EXCLUDED - it is invalid across such different margin profiles. Refresh peer data before use.',font=F_NOTE)
+for col,w in {'A':34,'B':13,'C':13,'D':13,'E':13,'F':13}.items(): rv.column_dimensions[col].width=w
+section(rv,4,'A.  Peer trading multiples (current, indicative)',span=6)
+for j,h in enumerate(['Peer company','EV/EBITDA (x)','P/E (x)','P/B (x)','ROE %','Div yld %']):
     put(rv,5,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
-peers=[('Siemens India',5.5,42,60,9,0.4),('ABB India',7.0,50,68,14,0.4),('CG Power & Ind.',6.5,45,62,18,0.2),
- ('GE Vernova T&D India',8.0,48,65,20,0.1),('Thermax',4.0,38,55,8,0.3),('Triveni Turbine',7.5,40,52,16,0.5),
- ('Larsen & Toubro',2.0,22,32,5,0.7),('Kalpataru Projects',0.9,12,22,3,0.4)]
+peers=[('Siemens India',42,50,9,16,0.4),('ABB India',48,52,14,20,0.4),('CG Power & Ind.',45,60,18,22,0.2),
+ ('Thermax',34,48,8,14,0.3),('Triveni Turbine',38,50,16,30,0.5),('Larsen & Toubro',20,33,5,15,0.7),
+ ('Kalpataru Projects',11,20,3,11,0.4)]
 r=6
-for nm,evr,eve,pe,pb,dy in peers:
+for nm,eve,pe,pb,roe,dy in peers:
     put(rv,r,1,nm,font=F_BLACK)
-    for j,v in enumerate([evr,eve,pe,pb,dy]): put(rv,r,2+j,v,font=F_BLACK,fmt=(FMT_X if j<4 else '0.0"%"'),fill=FILL_IN,align=RGT,border=B_ALL)
+    for j,v in enumerate([eve,pe,pb,roe,dy]): put(rv,r,2+j,v,font=F_BLACK,fmt=(FMT_X if j<3 else '0.0"%"'),fill=FILL_IN,align=RGT,border=B_ALL)
     r+=1
-med=r; put(rv,med,1,'Median',font=F_LBLB,fill=FILL_TOT)
-for j in range(5): put(rv,med,2+j,"=MEDIAN(%s6:%s%d)"%(CL(2+j),CL(2+j),r-1),font=F_BLUE,fmt=(FMT_X if j<4 else '0.0"%"'),align=RGT,fill=FILL_TOT,border=B_ALL)
-section(rv,med+2,'B.  Implied valuation for BHEL (on FY2027E)',span=6); b=med+3
-def rvl(rr,label,formula,fmt=FMT_CR,bold=False,key=None,fill=None,font=F_BLUE):
-    ah_label(rv,rr,label,bold=bold); put(rv,rr,3,formula,font=font,fmt=fmt,align=RGT,fill=fill,border=B_ALL)
-    if key: reg(rv,key,rr)
-rvl(b,'BHEL FY2027E revenue',"=%s"%FR('rev',9),font=F_GREEN)
-rvl(b+1,'BHEL FY2027E EBITDA',"=%s"%FR('ebitda',9),font=F_GREEN)
-rvl(b+2,'BHEL FY2027E EPS (INR)',"=%s"%FR('eps',9),fmt=FMT_PS,font=F_GREEN)
-rvl(b+3,'Net debt (FY26)',"=%s-%s"%(FR('bor',8),FR('cash',8)),font=F_GREEN)
-rvl(b+5,'Implied EV (EV/EBITDA method)',"=C%d*C%d"%(b+1,med))
-rvl(b+6,'Implied equity value (EV/EBITDA)',"=C%d-C%d"%(b+5,b+3))
-rvl(b+7,'Implied price - EV/EBITDA (INR)',"=C%d/%s"%(b+6,XR(ASM,'shares',3)),fmt=FMT_PS,fill=FILL_OK,bold=True)
-rvl(b+8,'Implied price - P/E method (INR)',"=C%d*D%d"%(b+2,med),fmt=FMT_PS,fill=FILL_OK,bold=True)
-rvl(b+9,'Implied EV (EV/Revenue method)',"=C%d*B%d"%(b,med))
-rvl(b+10,'Implied price - EV/Revenue (INR)',"=(C%d-C%d)/%s"%(b+9,b+3,XR(ASM,'shares',3)),fmt=FMT_PS,fill=FILL_OK,bold=True)
-rvl(b+12,'Average implied target price (INR)',"=AVERAGE(C%d,C%d,C%d)"%(b+7,b+8,b+10),fmt=FMT_PS,bold=True,fill=FILL_TOT,key='px_avg')
+med=r; put(rv,med,1,'Peer median',font=F_LBLB,fill=FILL_TOT)
+for j in range(5): put(rv,med,2+j,"=MEDIAN(%s6:%s%d)"%(CL(2+j),CL(2+j),r-1),font=F_BLUE,fmt=(FMT_X if j<3 else '0.0"%"'),align=RGT,fill=FILL_TOT,border=B_ALL)
+put(rv,med,7,'BHEL ROE ~2-8% -> discount to peers',font=F_NOTE)
+# B. BHEL target multiples (quality-discounted): bear / base / bull
+tm=med+2; section(rv,tm,'B.  BHEL target multiples (quality-discounted)',span=6); tm+=1
+for j,h in enumerate(['Multiple','Bear','Base','Bull']): put(rv,tm,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+put(rv,tm+1,1,'EV/EBITDA (x)  [L&T ~20x]',font=F_LBL)
+for j,v in enumerate([15,20,28]): put(rv,tm+1,2+j,v,font=F_BLACK,fmt=FMT_X,fill=FILL_IN,align=RGT,border=B_ALL)
+reg(rv,'evx',tm+1)
+put(rv,tm+2,1,'P/E (x)  [L&T ~33x]',font=F_LBL)
+for j,v in enumerate([25,35,45]): put(rv,tm+2,2+j,v,font=F_BLACK,fmt=FMT_X,fill=FILL_IN,align=RGT,border=B_ALL)
+reg(rv,'pex',tm+2)
+# C. implied value for BHEL (FY2027E)
+ib=tm+4; section(rv,ib,'C.  Implied value for BHEL (FY2027E)',span=6); ib+=1
+put(rv,ib,1,'BHEL FY2027E EBITDA',font=F_LBL); put(rv,ib,3,"=%s"%FR('ebitda',9),font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL); reg(rv,'ebitda',ib)
+put(rv,ib+1,1,'BHEL FY2027E EPS (INR)',font=F_LBL); put(rv,ib+1,3,"=%s"%FR('eps',9),font=F_GREEN,fmt=FMT_PS,align=RGT,border=B_ALL); reg(rv,'eps',ib+1)
+put(rv,ib+2,1,'Net cash (FY26)',font=F_LBL); put(rv,ib+2,3,"=%s-%s"%(FR('cash',8),FR('bor',8)),font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL); reg(rv,'netcash',ib+2)
+EVX=REG[RV]['evx']; PEX=REG[RV]['pex']; EB=REG[RV]['ebitda']; EP=REG[RV]['eps']; NC=REG[RV]['netcash']
+hp=ib+4
+for j,h in enumerate(['Implied price (INR)','Bear','Base','Bull']): put(rv,hp,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+put(rv,hp+1,1,'EV/EBITDA method',font=F_LBL)
+for j,col in enumerate(['B','C','D']):
+    put(rv,hp+1,2+j,"=(%s%d*$C$%d+$C$%d)/%s"%(col,EVX,EB,NC,XR(ASM,'shares',3)),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)
+put(rv,hp+2,1,'P/E method',font=F_LBL)
+for j,col in enumerate(['B','C','D']):
+    put(rv,hp+2,2+j,"=%s%d*$C$%d"%(col,PEX,EP),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)
+put(rv,hp+3,1,'Relative fair value (avg of methods)',font=F_LBLB)
+for j,col in enumerate(['B','C','D']):
+    put(rv,hp+3,2+j,"=AVERAGE(%s%d,%s%d)"%(col,hp+1,col,hp+2),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=FILL_OK)
+reg(rv,'relfv',hp+3); reg(rv,'px_avg',hp+3)
+put(rv,hp+5,1,'Memo: sector-parity (peer median EV/EBITDA, no discount)',font=F_ITAL)
+put(rv,hp+5,3,"=(C%d*$C$%d+$C$%d)/%s"%(med,EB,NC,XR(ASM,'shares',3)),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)
 freeze(rv,'B5')
-print("DCF + Relative built.")
+print("DCF + Relative (quality-discounted) built.")
 
 
 # ===== 19. SENSITIVITY ANALYSIS (WACC x terminal growth) =====
@@ -878,18 +893,19 @@ def tile(r,c,label,formula,fmt):
     put(db,r,c,label,font=F_LBLB,fill=FILL_SUB,border=B_ALL)
     cell=put(db,r+1,c,formula,fmt=fmt,fill=FILL_TOT,border=B_ALL,align=CEN)
     cell.font=Font(name='Calibri',size=14,color='1F3864',bold=True)
-tile(3,1,'DCF value / share (INR)',"='%s'!C27"%DCF,FMT_PS)
-tile(3,2,'Current price (INR)',"='%s'!C28"%DCF,FMT_PS)
-tile(3,4,'Upside / (downside)',"='%s'!C29"%DCF,FMT_PCT)
-tile(3,5,'Prob-weighted TP (INR)',"='%s'!B17"%SC,FMT_PS)
-tile(3,7,'Avg relative TP (INR)',"='%s'!C%d"%(RV,REG[RV]['px_avg']),FMT_PS)
-tile(3,8,'WACC',"=%s"%XR(ASM,'wacc',3),FMT_PCT)
-tile(6,1,'FY27E revenue (INR Cr)',"=%s"%FR('rev',9),FMT_CR)
-tile(6,2,'FY33E revenue (INR Cr)',"=%s"%FR('rev',15),FMT_CR)
+PTs="'Price Targets'"
+tile(3,1,'DCF value/share - base',"='%s'!C27"%DCF,FMT_PS)
+tile(3,2,'Blended fair value - base',"=%s!C17"%PTs,FMT_PS)
+tile(3,4,'Current price (INR)',"=%s!C9"%PTs,FMT_PS)
+tile(3,5,'12M target - Base',"=%s!D30"%PTs,FMT_PS)
+tile(3,7,'12M target - Bull',"=%s!D29"%PTs,FMT_PS)
+tile(3,8,'12M target - Bear',"=%s!D31"%PTs,FMT_PS)
+tile(6,1,'3M target - Base',"=%s!B30"%PTs,FMT_PS)
+tile(6,2,'6M target - Base',"=%s!C30"%PTs,FMT_PS)
 tile(6,4,'FY27E EBITDA margin',"=%s/%s"%(FR('ebitda',9),FR('rev',9)),FMT_PCT)
 tile(6,5,'FY33E EBITDA margin',"=%s/%s"%(FR('ebitda',15),FR('rev',15)),FMT_PCT)
 tile(6,7,'FY26 order book (INR Cr)',"=%s"%XR(RB,'close_ob',8),FMT_CR)
-tile(6,8,'FY33E PAT (INR Cr)',"=%s"%FR('pat',15),FMT_CR)
+tile(6,8,'WACC',"=%s"%XR(ASM,'wacc',3),FMT_PCT)
 put(db,9,1,'DCF bridge (INR Cr)',font=F_SECT)
 for i,(lab,frm) in enumerate([('PV of explicit FCFF',"='%s'!C18"%DCF),('PV of terminal value',"='%s'!C22"%DCF),
         ('Enterprise value',"='%s'!C23"%DCF),('Less: net debt',"='%s'!C24"%DCF),('Equity value',"='%s'!C25"%DCF)]):
@@ -907,6 +923,31 @@ c3.set_categories(Reference(rb,min_col=2,max_col=15,min_row=4,max_row=4)); db.ad
 c4=BarChart(); c4.title="FCFF (INR Cr, FY27-33)"; c4.height=7.5; c4.width=15; c4.style=13
 c4.add_data(Reference(dc,min_col=9,max_col=15,min_row=12,max_row=12),from_rows=True,titles_from_data=False)
 c4.set_categories(Reference(dc,min_col=9,max_col=15,min_row=4,max_row=4)); db.add_chart(c4,"E33")
+
+# ===== football-field valuation-range chart =====
+from openpyxl.chart.shapes import GraphicalProperties
+put(db,49,1,'Valuation football field (INR/share)  -  bars = value range by method; compare to current price',font=F_SECT)
+# chart data table (kept to the right, cols J-M, out of the chart area)
+put(db,50,10,'Method',font=F_LBLB); put(db,50,11,'Low',font=F_LBLB); put(db,50,12,'Range',font=F_LBLB); put(db,50,13,'High',font=F_LBLB)
+ffrows=[('DCF (bear-bull)',"=%s!B15"%PTs,"=%s!D15"%PTs),
+        ('Relative (bear-bull)',"=%s!B16"%PTs,"=%s!D16"%PTs),
+        ('Blended fair value',"=%s!B17"%PTs,"=%s!D17"%PTs),
+        ('12M target (bear-bull)',"=%s!D31"%PTs,"=%s!D29"%PTs),
+        ('Current price',0,"=%s!C9"%PTs)]
+for i,(lab,lo,hi) in enumerate(ffrows):
+    rr=51+i
+    put(db,rr,10,lab,font=F_LBL)
+    put(db,rr,11,lo,font=F_GREEN,fmt=FMT_PS,align=RGT)
+    put(db,rr,12,"=M%d-K%d"%(rr,rr),font=F_BLUE,fmt=FMT_PS,align=RGT)
+    put(db,rr,13,hi,font=F_GREEN,fmt=FMT_PS,align=RGT)
+ffc=BarChart(); ffc.type='bar'; ffc.grouping='stacked'; ffc.overlap=100
+ffc.title="Valuation football field (INR/share)"; ffc.height=8; ffc.width=17; ffc.style=10
+ffc.add_data(Reference(db,min_col=11,min_row=51,max_row=55),titles_from_data=False)   # Low (base, invisible)
+ffc.add_data(Reference(db,min_col=12,min_row=51,max_row=55),titles_from_data=False)   # Range (visible)
+ffc.set_categories(Reference(db,min_col=10,min_row=51,max_row=55))
+_gp=GraphicalProperties(); _gp.noFill=True; ffc.series[0].graphicalProperties=_gp     # hide the base series
+ffc.legend=None
+db.add_chart(ffc,"A50")
 
 # ===== ASSUMPTIONS RATIONALE (basis for every driver) =====
 ART='Assumptions Rationale'; ar=wb.create_sheet(ART); ar.sheet_view.showGridLines=False
@@ -930,8 +971,8 @@ def aR(driver,val,rat,hdr=False):
     for c in range(1,4): ar.cell(row=r,column=c).border=B_ALL
     arr[0]+=1
 aR('REVENUE & ORDER BOOK','','',hdr=True)
-aR('Execution rate','16.5%->19.5%','Revenue recognised as a % of opening order book. Historically BHEL executed ~15-17% of opening OB p.a.; order book is ~7x revenue. Ramp reflects rising capacity utilisation (~65%->80%) and faster thermal execution as supply chains normalise. Sensitivity: +/-1pp ~ +/-Rs2,400-4,000 cr revenue.')
-aR('Order inflow','Rs78k->96k cr','FY25 record inflow Rs92,535 cr; FY26 ~Rs75,000 cr. Driven by ~80 GW thermal pipeline (NTPC/NLC/state gencos) to FY32, plus T&D, railways and defence diversification. Set conservatively below the FY25 peak; macro driver = power capex super-cycle.')
+aR('Execution rate','16.5%->19.5%','Revenue = execution rate x opening order book. Implies ~13.5% revenue CAGR - within management guidance of 12-15% CAGR (Q4FY24 concall). BHEL has ~10 GW/yr execution capacity (demonstrated 12 GW); 80+ GW thermal to be ordered by 2032. Historically executed ~15-17% of opening OB.')
+aR('Order inflow','Rs78k->96k cr','FY25 record inflow Rs92,535 cr; FY26 actual Rs75,916 cr (Q4FY26 supplementary); FY26 closing order book Rs2,40,000 cr - highest ever (Power 81% / Industry 18% / Export 1%), CONFIRMING the model driver. ~80 GW thermal to be ordered by 2032 (~10-12 GW/yr) plus T&D, railways, defence, nuclear.')
 aR('Revenue mix - Power','75%','BHEL core; power was ~75-80% of revenue historically (FY26 power Rs25,407 cr). Thermal ordering remains dominant near-term.')
 aR('Revenue mix - Industry','22%','Rising diversification (industrial systems, transportation, defence). Industry segment grew strongly in FY25-26; balance ~3% is exports/renewables.')
 aR('COSTS','','',hdr=True)
@@ -949,18 +990,18 @@ aR('Research & development','2.5%','BHEL discloses R&D at ~2.5% of turnover; str
 aR('Depreciation rate','9.5% of opening net block','Consistent with historical D&A / net block (~9-10%); plant & machinery weighted asset base.')
 aR('Capex','Rs600-950 cr','Modernisation plus new capacity for renewables, defence and electrolysers. Historical capex Rs300-900 cr; internally funded.')
 aR('WORKING CAPITAL','','',hdr=True)
-aR('Receivable days (vs revenue)','74','Audited history 49-121 days; recent FY24-26 ~73-76. Large PSU/SEB customers; collections steady. Anchored to the recent ~74-day level.')
-aR('Inventory days (vs COGS)','210->195','Audited history 151-232 days (FY26 212); long manufacturing/project cycle. Computed on COGS (consistent with the historical ratio sheet). Gradual improvement assumed.')
+aR('Receivable days (vs revenue)','74 -> 68','Audited history 49-121 (FY26 73). Tapered down per management WC-improvement focus (Q4FY24 concall): legacy dues clearing within a quarter of milestone completion.')
+aR('Inventory days (vs COGS)','210 -> 192','Audited history 151-232 (FY26 212); long project cycle. Tapered per management guidance on better execution & supply-chain/vendor normalisation (Q4FY24 concall).')
 aR('Payable days (vs COGS)','167->160','Audited history 167-230 days (FY26 167); computed on COGS. Held near the FY26 level with a slight tightening.')
-aR('Contract assets - current (% rev)','45%','Unbilled revenue on long-cycle EPC projects (percentage-of-completion). Audited FY26 current contract assets Rs15,193 cr = 45% of revenue (total incl non-current Rs29,390 cr ~ 87%). Re-anchored from the prior 23.5% estimate to the audited actual.')
-aR('Contract liab / advances - current (% rev)','27%','Customer advances & billing-in-excess - a key working-capital funding source. Audited FY26 current contract liabilities Rs9,110 cr = 27% of revenue (total incl non-current Rs22,524 cr ~ 67%). Re-anchored from the prior 35.5% estimate to the audited actual.')
+aR('Contract assets - current (% rev)','45% -> 39%','Unbilled revenue on long-cycle EPC (percentage-of-completion). Audited FY26 current contract assets = 45% of revenue. VALIDATION: per Q4FY26 supplementary, TOTAL contract assets were ~flat YoY (Rs29,444->29,390 cr) despite +19% revenue, so contract-assets/revenue fell ~104%->~87% - the taper is thus conservative. Consistent with Q4FY24 concall guidance (legacy NTPC clearing, faster billing, better payment terms) -> working capital "getting better".')
+aR('Contract liab / advances - current (% rev)','27% -> 30%','Customer advances & billing-in-excess - key WC funding. Audited FY26 = 27% of revenue. Rising modestly per management (Q4FY24 concall): improved advance / milestone payment terms on new orders (e.g. NTPC bulk orders).')
 aR('Other non-current assets','Rs21.6k->25.7k cr','Re-anchored to audited FY26 (Rs20,935 cr): non-current contract assets (~Rs14,197 cr), deferred tax assets (Rs3,533 cr), long-term/legacy trade receivables (Rs2,427 cr) and other financial assets/deposits. Grown ~3% p.a.')
 aR('Other non-current liabilities','Rs18.1k->21.6k cr','Re-anchored to audited FY26 (Rs17,569 cr): non-current contract liabilities/advances (~Rs13,413 cr), long-term provisions (warranty & employee benefits, Rs2,355 cr), non-current trade payables and other. Grown ~3% p.a.')
 aR('Other current/NC growth','3% p.a.','Structural balance-sheet items grow slowly, not 1:1 with revenue, to avoid overstating working-capital drag.')
 aR('CWIP / Investments','Rs400 cr / Rs310-370 cr','CWIP steady-state low (capex flows quickly to assets); investments = JV/associate stakes, modest growth.')
 aR('CAPITAL STRUCTURE & TAX','','',hdr=True)
-aR('LT vs ST borrowings','35% LT / 65% ST','BHEL borrowings are largely short-term working-capital lines; ~35% assumed long-term/leases. Editable split.')
-aR('New borrowings / repayment','0 / Rs1,000 cr p.a.','Strong forecast FCF and large cash allow steady deleveraging; gross debt declines over the horizon.')
+aR('LT vs ST borrowings','~2% LT / 98% ST','Audited: BHEL borrowings are almost entirely short-term working-capital lines. The only "long-term" borrowing is lease liabilities (~Rs170 cr in FY26 = 2.05% of total; FY20-26 range 0.3-2.1%). Re-anchored from the prior arbitrary 35% split to the audited actual ~2%.')
+aR('New borrowings / repayment','held flat','BHEL borrowings are short-term working-capital lines (not a term loan) - no fixed repayment schedule. Held flat: the large cash balance (net cash ~Rs3,700 cr) funds working-capital growth. The prior Rs1,000 cr/yr repayment was an unsupported placeholder. Financing choices do not affect FCFF/EV (pre-financing).')
 aR('Interest rate','8.5%','Blended cost on borrowings; consistent with historical finance cost / average debt and the current rate environment.')
 aR('Tax rate','25%','BHEL on the new corporate-tax regime (~25.17%); normalised to 25%.')
 aR('Dividend payout','30%','CPSE/DIPAM policy (~30% of PAT or 5% of net worth); historical payout 30-33%.')
@@ -969,19 +1010,74 @@ aR('Risk-free rate','6.8%','~India 10-year G-Sec yield.')
 aR('Beta','1.25','BHEL is a high-beta cyclical capital-goods PSU; levered beta > 1.')
 aR('Equity risk premium','6.5%','India ERP ~6-7%.')
 aR('Cost of debt / weights','8.5% / 15% D, 85% E','Low leverage; target structure mostly equity. After-tax Kd used in WACC.')
-aR('Terminal growth','4.5%','Below long-run nominal GDP (~10-11%); conservative perpetuity for a mature franchise (~inflation + modest real growth).')
+aR('Terminal growth','4.5%','Below long-run nominal GDP (~10-11%); conservative perpetuity. Terminal FCFF is NORMALIZED so working capital grows at g (steady state), not at the FY33 high-growth rate - otherwise the terminal value understates value because the last explicit year still carries a large growth-driven WC investment.')
 aR('WACC (derived)','~13.6%','We*Ke + Wd*Kd*(1-t); high due to elevated equity beta. Tested on the Sensitivity sheet vs terminal growth.')
 freeze(ar,'A4')
+
+# ===== PRICE TARGETS (blended valuation + 3/6/12-month scenarios) =====
+PT='Price Targets'; pt=newsheet(PT)
+put(pt,2,1,'Blended valuation & scenario price targets. Fundamental fair value = 50% DCF + 50% quality-adjusted relative. Horizon targets apply scenario EV/EBITDA multiples to forward EBITDA (3M/6M on FY2027E, 12M rolled to FY2028E) plus net cash, per share. Multiples (gold) are editable. Model output, not investment advice.',font=F_NOTE)
+for col,w in {'A':42,'B':13,'C':13,'D':13}.items(): pt.column_dimensions[col].width=w
+section(pt,4,'A.  Inputs (live links)',span=4)
+def ptin(r,label,formula,fmt=FMT_CR,key=None):
+    put(pt,r,1,label,font=F_LBL); put(pt,r,3,formula,font=F_GREEN,fmt=fmt,align=RGT,border=B_ALL)
+    if key: reg(pt,key,r)
+ptin(5,'FY2027E EBITDA (INR Cr)',"=%s"%FR('ebitda',9),key='eb27')
+ptin(6,'FY2028E EBITDA (INR Cr)',"=%s"%FR('ebitda',10),key='eb28')
+ptin(7,'Net cash - FY26 (INR Cr)',"=%s-%s"%(FR('cash',8),FR('bor',8)),key='nc')
+ptin(8,'Shares outstanding (crore)',"=%s"%XR(ASM,'shares',3),fmt=FMT_CR1,key='sh')
+ptin(9,'Current market price (INR)',"=%s"%XR(ASM,'price',3),fmt=FMT_PS,key='px')
+ptin(10,'DCF value/share - base (INR)',"=%s"%XR(DCF,'ivps',3),fmt=FMT_PS,key='dcf')
+put(pt,11,1,'Relative fair value - Bear/Base/Bull (INR)',font=F_LBL)
+for j,col in enumerate(['B','C','D']):
+    put(pt,11,2+j,"='%s'!%s%d"%(RV,col,REG[RV]['relfv']),font=F_GREEN,fmt=FMT_PS,align=RGT,border=B_ALL)
+NCr=REG[PT]['nc']; SHr=REG[PT]['sh']; EB27=REG[PT]['eb27']; EB28=REG[PT]['eb28']; PXr=REG[PT]['px']; DCFr=REG[PT]['dcf']; RELr=11
+section(pt,13,'B.  Fundamental fair value (12-month)',span=4)
+for j,h in enumerate(['','Bear','Base','Bull']): put(pt,14,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+put(pt,15,1,'DCF (INR/share)',font=F_LBL)
+put(pt,15,2,"=$C$%d*0.81"%DCFr,font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)   # bear = flat-WC sensitivity
+put(pt,15,3,"=$C$%d"%DCFr,font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)        # base = live DCF
+put(pt,15,4,"=$C$%d*1.20"%DCFr,font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)   # bull = aggressive-WC sensitivity
+put(pt,16,1,'Relative (INR/share)',font=F_LBL)
+for j,col in enumerate(['B','C','D']): put(pt,16,2+j,"=%s%d"%(col,RELr),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)
+put(pt,17,1,'Blended fair value (50/50)',font=F_LBLB)
+for j,col in enumerate(['B','C','D']): put(pt,17,2+j,"=AVERAGE(%s15,%s16)"%(col,col),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=FILL_OK)
+reg(pt,'blend',17)
+put(pt,18,1,'  Upside/(downside) vs current price',font=F_ITAL)
+for j,col in enumerate(['B','C','D']): put(pt,18,2+j,"=%s17/$C$%d-1"%(col,PXr),font=F_BLUE,fmt=FMT_PCT,align=RGT,border=B_ALL)
+section(pt,20,'C.  Scenario EV/EBITDA multiple (x) - editable',span=4)
+for j,h in enumerate(['Scenario','3-month','6-month','12-month']): put(pt,21,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+for nm,rr,vals in [('Bull',22,[45,46,44]),('Base',23,[43,40,36]),('Bear',24,[38,32,26])]:
+    put(pt,rr,1,nm,font=F_LBL)
+    for j,v in enumerate(vals): put(pt,rr,2+j,v,font=F_BLACK,fmt=FMT_X,fill=FILL_IN,align=RGT,border=B_ALL)
+put(pt,25,1,'EBITDA basis',font=F_ITAL)
+for j,v in enumerate(['FY2027E','FY2027E','FY2028E']): put(pt,25,2+j,v,font=F_ITAL,align=CEN,border=B_ALL)
+section(pt,27,'D.  Scenario price target (INR/share)',span=4)
+for j,h in enumerate(['Scenario','3-month','6-month','12-month']): put(pt,28,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+for nm,rr,mr in [('Bull',29,22),('Base',30,23),('Bear',31,24)]:
+    fillb=FILL_OK if nm=='Base' else None
+    put(pt,rr,1,nm,font=(F_LBLB if nm=='Base' else F_LBL))
+    put(pt,rr,2,"=(B%d*$C$%d+$C$%d)/$C$%d"%(mr,EB27,NCr,SHr),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=fillb)
+    put(pt,rr,3,"=(C%d*$C$%d+$C$%d)/$C$%d"%(mr,EB27,NCr,SHr),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=fillb)
+    put(pt,rr,4,"=(D%d*$C$%d+$C$%d)/$C$%d"%(mr,EB28,NCr,SHr),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=fillb)
+section(pt,33,'E.  Upside/(downside) vs current price',span=4)
+for j,h in enumerate(['Scenario','3-month','6-month','12-month']): put(pt,34,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+for nm,rr,pr in [('Bull',35,29),('Base',36,30),('Bear',37,31)]:
+    put(pt,rr,1,nm,font=F_LBL)
+    for j,col in enumerate(['B','C','D']): put(pt,rr,2+j,"=%s%d/$C$%d-1"%(col,pr,PXr),font=F_BLUE,fmt=FMT_PCT,align=RGT,border=B_ALL)
+put(pt,39,1,'Verdict: fundamental fair value ~Rs110-190 (base ~Rs145) implies BHEL is expensive vs the market price; the price is sustained by sector-premium multiples. Bull requires strong growth to materialise AND premium multiples to persist; Bear reflects de-rating toward fundamentals.',font=F_NOTE)
+freeze(pt,'B5')
+print("Price Targets built.")
 
 # ===== finalise: tab order, colours, save =====
 order=['Cover Page','Assumptions','Assumptions Rationale','Historical Financial Statements','Historical Ratio Analysis',
  'Operational Drivers','Revenue Build-up','Cost Forecast','Working Capital Schedule','Fixed Asset Schedule',
  'Depreciation Schedule','Debt Schedule','Equity Schedule','Other Assets & Liabilities','Cash Flow Statement',
  'Forecast Financial Statements','Ratio Analysis','DCF Valuation','Relative Valuation','Sensitivity Analysis',
- 'Scenario Analysis','Dashboard','Error Checks']
+ 'Scenario Analysis','Price Targets','Dashboard','Error Checks']
 wb._sheets.sort(key=lambda s: order.index(s.title))
 for t in ['Cover Page','Dashboard']: wb[t].sheet_properties.tabColor=NAVY
-for t in ['DCF Valuation','Relative Valuation','Scenario Analysis']: wb[t].sheet_properties.tabColor='548235'
+for t in ['DCF Valuation','Relative Valuation','Scenario Analysis','Price Targets']: wb[t].sheet_properties.tabColor='548235'
 wb['Error Checks'].sheet_properties.tabColor='C00000'; wb['Assumptions'].sheet_properties.tabColor='BF8F00'
 wb.active=wb._sheets.index(wb['Dashboard'])
 wb.save('/projects/sandbox/BHEL/BHEL_Financial_Model.xlsx')
