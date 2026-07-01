@@ -893,18 +893,19 @@ def tile(r,c,label,formula,fmt):
     put(db,r,c,label,font=F_LBLB,fill=FILL_SUB,border=B_ALL)
     cell=put(db,r+1,c,formula,fmt=fmt,fill=FILL_TOT,border=B_ALL,align=CEN)
     cell.font=Font(name='Calibri',size=14,color='1F3864',bold=True)
-tile(3,1,'DCF value / share (INR)',"='%s'!C27"%DCF,FMT_PS)
-tile(3,2,'Current price (INR)',"='%s'!C28"%DCF,FMT_PS)
-tile(3,4,'Upside / (downside)',"='%s'!C29"%DCF,FMT_PCT)
-tile(3,5,'Prob-weighted TP (INR)',"='%s'!B17"%SC,FMT_PS)
-tile(3,7,'Avg relative TP (INR)',"='%s'!C%d"%(RV,REG[RV]['px_avg']),FMT_PS)
-tile(3,8,'WACC',"=%s"%XR(ASM,'wacc',3),FMT_PCT)
-tile(6,1,'FY27E revenue (INR Cr)',"=%s"%FR('rev',9),FMT_CR)
-tile(6,2,'FY33E revenue (INR Cr)',"=%s"%FR('rev',15),FMT_CR)
+PTs="'Price Targets'"
+tile(3,1,'DCF value/share - base',"='%s'!C27"%DCF,FMT_PS)
+tile(3,2,'Blended fair value - base',"=%s!C17"%PTs,FMT_PS)
+tile(3,4,'Current price (INR)',"=%s!C9"%PTs,FMT_PS)
+tile(3,5,'12M target - Base',"=%s!D30"%PTs,FMT_PS)
+tile(3,7,'12M target - Bull',"=%s!D29"%PTs,FMT_PS)
+tile(3,8,'12M target - Bear',"=%s!D31"%PTs,FMT_PS)
+tile(6,1,'3M target - Base',"=%s!B30"%PTs,FMT_PS)
+tile(6,2,'6M target - Base',"=%s!C30"%PTs,FMT_PS)
 tile(6,4,'FY27E EBITDA margin',"=%s/%s"%(FR('ebitda',9),FR('rev',9)),FMT_PCT)
 tile(6,5,'FY33E EBITDA margin',"=%s/%s"%(FR('ebitda',15),FR('rev',15)),FMT_PCT)
 tile(6,7,'FY26 order book (INR Cr)',"=%s"%XR(RB,'close_ob',8),FMT_CR)
-tile(6,8,'FY33E PAT (INR Cr)',"=%s"%FR('pat',15),FMT_CR)
+tile(6,8,'WACC',"=%s"%XR(ASM,'wacc',3),FMT_PCT)
 put(db,9,1,'DCF bridge (INR Cr)',font=F_SECT)
 for i,(lab,frm) in enumerate([('PV of explicit FCFF',"='%s'!C18"%DCF),('PV of terminal value',"='%s'!C22"%DCF),
         ('Enterprise value',"='%s'!C23"%DCF),('Less: net debt',"='%s'!C24"%DCF),('Equity value',"='%s'!C25"%DCF)]):
@@ -922,6 +923,31 @@ c3.set_categories(Reference(rb,min_col=2,max_col=15,min_row=4,max_row=4)); db.ad
 c4=BarChart(); c4.title="FCFF (INR Cr, FY27-33)"; c4.height=7.5; c4.width=15; c4.style=13
 c4.add_data(Reference(dc,min_col=9,max_col=15,min_row=12,max_row=12),from_rows=True,titles_from_data=False)
 c4.set_categories(Reference(dc,min_col=9,max_col=15,min_row=4,max_row=4)); db.add_chart(c4,"E33")
+
+# ===== football-field valuation-range chart =====
+from openpyxl.chart.shapes import GraphicalProperties
+put(db,49,1,'Valuation football field (INR/share)  -  bars = value range by method; compare to current price',font=F_SECT)
+# chart data table (kept to the right, cols J-M, out of the chart area)
+put(db,50,10,'Method',font=F_LBLB); put(db,50,11,'Low',font=F_LBLB); put(db,50,12,'Range',font=F_LBLB); put(db,50,13,'High',font=F_LBLB)
+ffrows=[('DCF (bear-bull)',"=%s!B15"%PTs,"=%s!D15"%PTs),
+        ('Relative (bear-bull)',"=%s!B16"%PTs,"=%s!D16"%PTs),
+        ('Blended fair value',"=%s!B17"%PTs,"=%s!D17"%PTs),
+        ('12M target (bear-bull)',"=%s!D31"%PTs,"=%s!D29"%PTs),
+        ('Current price',0,"=%s!C9"%PTs)]
+for i,(lab,lo,hi) in enumerate(ffrows):
+    rr=51+i
+    put(db,rr,10,lab,font=F_LBL)
+    put(db,rr,11,lo,font=F_GREEN,fmt=FMT_PS,align=RGT)
+    put(db,rr,12,"=M%d-K%d"%(rr,rr),font=F_BLUE,fmt=FMT_PS,align=RGT)
+    put(db,rr,13,hi,font=F_GREEN,fmt=FMT_PS,align=RGT)
+ffc=BarChart(); ffc.type='bar'; ffc.grouping='stacked'; ffc.overlap=100
+ffc.title="Valuation football field (INR/share)"; ffc.height=8; ffc.width=17; ffc.style=10
+ffc.add_data(Reference(db,min_col=11,min_row=51,max_row=55),titles_from_data=False)   # Low (base, invisible)
+ffc.add_data(Reference(db,min_col=12,min_row=51,max_row=55),titles_from_data=False)   # Range (visible)
+ffc.set_categories(Reference(db,min_col=10,min_row=51,max_row=55))
+_gp=GraphicalProperties(); _gp.noFill=True; ffc.series[0].graphicalProperties=_gp     # hide the base series
+ffc.legend=None
+db.add_chart(ffc,"A50")
 
 # ===== ASSUMPTIONS RATIONALE (basis for every driver) =====
 ART='Assumptions Rationale'; ar=wb.create_sheet(ART); ar.sheet_view.showGridLines=False
