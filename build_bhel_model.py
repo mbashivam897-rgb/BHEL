@@ -712,38 +712,53 @@ dc.column_dimensions['C'].width=16; freeze(dc,'B5')
 
 # ===== 18. RELATIVE VALUATION =====
 RV='Relative Valuation'; rv=newsheet(RV)
-put(rv,2,1,'Peer trading multiples are INDICATIVE; refresh with live market data before use.',font=F_NOTE)
-for col,w in {'A':30,'B':14,'C':14,'D':14,'E':14,'F':14}.items(): rv.column_dimensions[col].width=w
-section(rv,4,'A.  Peer trading multiples (indicative)',span=6)
-for j,h in enumerate(['Peer company','EV/Revenue (x)','EV/EBITDA (x)','P/E (x)','P/B (x)','Div yield %']):
+put(rv,2,1,'Peer multiples reflect current (2025-26) market levels. BHEL is valued at a QUALITY DISCOUNT to premium MNC peers (Siemens/ABB ~50x P/E) given its lower margins (~8% vs 15-18%), low ROE (~2-8% vs 15-30%) and PSU profile; the closest large comp is L&T (~20x EV/EBITDA, ~33x P/E). EV/Revenue is intentionally EXCLUDED - it is invalid across such different margin profiles. Refresh peer data before use.',font=F_NOTE)
+for col,w in {'A':34,'B':13,'C':13,'D':13,'E':13,'F':13}.items(): rv.column_dimensions[col].width=w
+section(rv,4,'A.  Peer trading multiples (current, indicative)',span=6)
+for j,h in enumerate(['Peer company','EV/EBITDA (x)','P/E (x)','P/B (x)','ROE %','Div yld %']):
     put(rv,5,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
-peers=[('Siemens India',5.5,42,60,9,0.4),('ABB India',7.0,50,68,14,0.4),('CG Power & Ind.',6.5,45,62,18,0.2),
- ('GE Vernova T&D India',8.0,48,65,20,0.1),('Thermax',4.0,38,55,8,0.3),('Triveni Turbine',7.5,40,52,16,0.5),
- ('Larsen & Toubro',2.0,22,32,5,0.7),('Kalpataru Projects',0.9,12,22,3,0.4)]
+peers=[('Siemens India',42,50,9,16,0.4),('ABB India',48,52,14,20,0.4),('CG Power & Ind.',45,60,18,22,0.2),
+ ('Thermax',34,48,8,14,0.3),('Triveni Turbine',38,50,16,30,0.5),('Larsen & Toubro',20,33,5,15,0.7),
+ ('Kalpataru Projects',11,20,3,11,0.4)]
 r=6
-for nm,evr,eve,pe,pb,dy in peers:
+for nm,eve,pe,pb,roe,dy in peers:
     put(rv,r,1,nm,font=F_BLACK)
-    for j,v in enumerate([evr,eve,pe,pb,dy]): put(rv,r,2+j,v,font=F_BLACK,fmt=(FMT_X if j<4 else '0.0"%"'),fill=FILL_IN,align=RGT,border=B_ALL)
+    for j,v in enumerate([eve,pe,pb,roe,dy]): put(rv,r,2+j,v,font=F_BLACK,fmt=(FMT_X if j<3 else '0.0"%"'),fill=FILL_IN,align=RGT,border=B_ALL)
     r+=1
-med=r; put(rv,med,1,'Median',font=F_LBLB,fill=FILL_TOT)
-for j in range(5): put(rv,med,2+j,"=MEDIAN(%s6:%s%d)"%(CL(2+j),CL(2+j),r-1),font=F_BLUE,fmt=(FMT_X if j<4 else '0.0"%"'),align=RGT,fill=FILL_TOT,border=B_ALL)
-section(rv,med+2,'B.  Implied valuation for BHEL (on FY2027E)',span=6); b=med+3
-def rvl(rr,label,formula,fmt=FMT_CR,bold=False,key=None,fill=None,font=F_BLUE):
-    ah_label(rv,rr,label,bold=bold); put(rv,rr,3,formula,font=font,fmt=fmt,align=RGT,fill=fill,border=B_ALL)
-    if key: reg(rv,key,rr)
-rvl(b,'BHEL FY2027E revenue',"=%s"%FR('rev',9),font=F_GREEN)
-rvl(b+1,'BHEL FY2027E EBITDA',"=%s"%FR('ebitda',9),font=F_GREEN)
-rvl(b+2,'BHEL FY2027E EPS (INR)',"=%s"%FR('eps',9),fmt=FMT_PS,font=F_GREEN)
-rvl(b+3,'Net debt (FY26)',"=%s-%s"%(FR('bor',8),FR('cash',8)),font=F_GREEN)
-rvl(b+5,'Implied EV (EV/EBITDA method)',"=C%d*C%d"%(b+1,med))
-rvl(b+6,'Implied equity value (EV/EBITDA)',"=C%d-C%d"%(b+5,b+3))
-rvl(b+7,'Implied price - EV/EBITDA (INR)',"=C%d/%s"%(b+6,XR(ASM,'shares',3)),fmt=FMT_PS,fill=FILL_OK,bold=True)
-rvl(b+8,'Implied price - P/E method (INR)',"=C%d*D%d"%(b+2,med),fmt=FMT_PS,fill=FILL_OK,bold=True)
-rvl(b+9,'Implied EV (EV/Revenue method)',"=C%d*B%d"%(b,med))
-rvl(b+10,'Implied price - EV/Revenue (INR)',"=(C%d-C%d)/%s"%(b+9,b+3,XR(ASM,'shares',3)),fmt=FMT_PS,fill=FILL_OK,bold=True)
-rvl(b+12,'Average implied target price (INR)',"=AVERAGE(C%d,C%d,C%d)"%(b+7,b+8,b+10),fmt=FMT_PS,bold=True,fill=FILL_TOT,key='px_avg')
+med=r; put(rv,med,1,'Peer median',font=F_LBLB,fill=FILL_TOT)
+for j in range(5): put(rv,med,2+j,"=MEDIAN(%s6:%s%d)"%(CL(2+j),CL(2+j),r-1),font=F_BLUE,fmt=(FMT_X if j<3 else '0.0"%"'),align=RGT,fill=FILL_TOT,border=B_ALL)
+put(rv,med,7,'BHEL ROE ~2-8% -> discount to peers',font=F_NOTE)
+# B. BHEL target multiples (quality-discounted): bear / base / bull
+tm=med+2; section(rv,tm,'B.  BHEL target multiples (quality-discounted)',span=6); tm+=1
+for j,h in enumerate(['Multiple','Bear','Base','Bull']): put(rv,tm,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+put(rv,tm+1,1,'EV/EBITDA (x)  [L&T ~20x]',font=F_LBL)
+for j,v in enumerate([15,20,28]): put(rv,tm+1,2+j,v,font=F_BLACK,fmt=FMT_X,fill=FILL_IN,align=RGT,border=B_ALL)
+reg(rv,'evx',tm+1)
+put(rv,tm+2,1,'P/E (x)  [L&T ~33x]',font=F_LBL)
+for j,v in enumerate([25,35,45]): put(rv,tm+2,2+j,v,font=F_BLACK,fmt=FMT_X,fill=FILL_IN,align=RGT,border=B_ALL)
+reg(rv,'pex',tm+2)
+# C. implied value for BHEL (FY2027E)
+ib=tm+4; section(rv,ib,'C.  Implied value for BHEL (FY2027E)',span=6); ib+=1
+put(rv,ib,1,'BHEL FY2027E EBITDA',font=F_LBL); put(rv,ib,3,"=%s"%FR('ebitda',9),font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL); reg(rv,'ebitda',ib)
+put(rv,ib+1,1,'BHEL FY2027E EPS (INR)',font=F_LBL); put(rv,ib+1,3,"=%s"%FR('eps',9),font=F_GREEN,fmt=FMT_PS,align=RGT,border=B_ALL); reg(rv,'eps',ib+1)
+put(rv,ib+2,1,'Net cash (FY26)',font=F_LBL); put(rv,ib+2,3,"=%s-%s"%(FR('cash',8),FR('bor',8)),font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL); reg(rv,'netcash',ib+2)
+EVX=REG[RV]['evx']; PEX=REG[RV]['pex']; EB=REG[RV]['ebitda']; EP=REG[RV]['eps']; NC=REG[RV]['netcash']
+hp=ib+4
+for j,h in enumerate(['Implied price (INR)','Bear','Base','Bull']): put(rv,hp,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+put(rv,hp+1,1,'EV/EBITDA method',font=F_LBL)
+for j,col in enumerate(['B','C','D']):
+    put(rv,hp+1,2+j,"=(%s%d*$C$%d+$C$%d)/%s"%(col,EVX,EB,NC,XR(ASM,'shares',3)),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)
+put(rv,hp+2,1,'P/E method',font=F_LBL)
+for j,col in enumerate(['B','C','D']):
+    put(rv,hp+2,2+j,"=%s%d*$C$%d"%(col,PEX,EP),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)
+put(rv,hp+3,1,'Relative fair value (avg of methods)',font=F_LBLB)
+for j,col in enumerate(['B','C','D']):
+    put(rv,hp+3,2+j,"=AVERAGE(%s%d,%s%d)"%(col,hp+1,col,hp+2),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=FILL_OK)
+reg(rv,'relfv',hp+3); reg(rv,'px_avg',hp+3)
+put(rv,hp+5,1,'Memo: sector-parity (peer median EV/EBITDA, no discount)',font=F_ITAL)
+put(rv,hp+5,3,"=(C%d*$C$%d+$C$%d)/%s"%(med,EB,NC,XR(ASM,'shares',3)),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)
 freeze(rv,'B5')
-print("DCF + Relative built.")
+print("DCF + Relative (quality-discounted) built.")
 
 
 # ===== 19. SENSITIVITY ANALYSIS (WACC x terminal growth) =====
@@ -973,15 +988,70 @@ aR('Terminal growth','4.5%','Below long-run nominal GDP (~10-11%); conservative 
 aR('WACC (derived)','~13.6%','We*Ke + Wd*Kd*(1-t); high due to elevated equity beta. Tested on the Sensitivity sheet vs terminal growth.')
 freeze(ar,'A4')
 
+# ===== PRICE TARGETS (blended valuation + 3/6/12-month scenarios) =====
+PT='Price Targets'; pt=newsheet(PT)
+put(pt,2,1,'Blended valuation & scenario price targets. Fundamental fair value = 50% DCF + 50% quality-adjusted relative. Horizon targets apply scenario EV/EBITDA multiples to forward EBITDA (3M/6M on FY2027E, 12M rolled to FY2028E) plus net cash, per share. Multiples (gold) are editable. Model output, not investment advice.',font=F_NOTE)
+for col,w in {'A':42,'B':13,'C':13,'D':13}.items(): pt.column_dimensions[col].width=w
+section(pt,4,'A.  Inputs (live links)',span=4)
+def ptin(r,label,formula,fmt=FMT_CR,key=None):
+    put(pt,r,1,label,font=F_LBL); put(pt,r,3,formula,font=F_GREEN,fmt=fmt,align=RGT,border=B_ALL)
+    if key: reg(pt,key,r)
+ptin(5,'FY2027E EBITDA (INR Cr)',"=%s"%FR('ebitda',9),key='eb27')
+ptin(6,'FY2028E EBITDA (INR Cr)',"=%s"%FR('ebitda',10),key='eb28')
+ptin(7,'Net cash - FY26 (INR Cr)',"=%s-%s"%(FR('cash',8),FR('bor',8)),key='nc')
+ptin(8,'Shares outstanding (crore)',"=%s"%XR(ASM,'shares',3),fmt=FMT_CR1,key='sh')
+ptin(9,'Current market price (INR)',"=%s"%XR(ASM,'price',3),fmt=FMT_PS,key='px')
+ptin(10,'DCF value/share - base (INR)',"=%s"%XR(DCF,'ivps',3),fmt=FMT_PS,key='dcf')
+put(pt,11,1,'Relative fair value - Bear/Base/Bull (INR)',font=F_LBL)
+for j,col in enumerate(['B','C','D']):
+    put(pt,11,2+j,"='%s'!%s%d"%(RV,col,REG[RV]['relfv']),font=F_GREEN,fmt=FMT_PS,align=RGT,border=B_ALL)
+NCr=REG[PT]['nc']; SHr=REG[PT]['sh']; EB27=REG[PT]['eb27']; EB28=REG[PT]['eb28']; PXr=REG[PT]['px']; DCFr=REG[PT]['dcf']; RELr=11
+section(pt,13,'B.  Fundamental fair value (12-month)',span=4)
+for j,h in enumerate(['','Bear','Base','Bull']): put(pt,14,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+put(pt,15,1,'DCF (INR/share)',font=F_LBL)
+put(pt,15,2,"=$C$%d*0.81"%DCFr,font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)   # bear = flat-WC sensitivity
+put(pt,15,3,"=$C$%d"%DCFr,font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)        # base = live DCF
+put(pt,15,4,"=$C$%d*1.20"%DCFr,font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)   # bull = aggressive-WC sensitivity
+put(pt,16,1,'Relative (INR/share)',font=F_LBL)
+for j,col in enumerate(['B','C','D']): put(pt,16,2+j,"=%s%d"%(col,RELr),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL)
+put(pt,17,1,'Blended fair value (50/50)',font=F_LBLB)
+for j,col in enumerate(['B','C','D']): put(pt,17,2+j,"=AVERAGE(%s15,%s16)"%(col,col),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=FILL_OK)
+reg(pt,'blend',17)
+put(pt,18,1,'  Upside/(downside) vs current price',font=F_ITAL)
+for j,col in enumerate(['B','C','D']): put(pt,18,2+j,"=%s17/$C$%d-1"%(col,PXr),font=F_BLUE,fmt=FMT_PCT,align=RGT,border=B_ALL)
+section(pt,20,'C.  Scenario EV/EBITDA multiple (x) - editable',span=4)
+for j,h in enumerate(['Scenario','3-month','6-month','12-month']): put(pt,21,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+for nm,rr,vals in [('Bull',22,[45,46,44]),('Base',23,[43,40,36]),('Bear',24,[38,32,26])]:
+    put(pt,rr,1,nm,font=F_LBL)
+    for j,v in enumerate(vals): put(pt,rr,2+j,v,font=F_BLACK,fmt=FMT_X,fill=FILL_IN,align=RGT,border=B_ALL)
+put(pt,25,1,'EBITDA basis',font=F_ITAL)
+for j,v in enumerate(['FY2027E','FY2027E','FY2028E']): put(pt,25,2+j,v,font=F_ITAL,align=CEN,border=B_ALL)
+section(pt,27,'D.  Scenario price target (INR/share)',span=4)
+for j,h in enumerate(['Scenario','3-month','6-month','12-month']): put(pt,28,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+for nm,rr,mr in [('Bull',29,22),('Base',30,23),('Bear',31,24)]:
+    fillb=FILL_OK if nm=='Base' else None
+    put(pt,rr,1,nm,font=(F_LBLB if nm=='Base' else F_LBL))
+    put(pt,rr,2,"=(B%d*$C$%d+$C$%d)/$C$%d"%(mr,EB27,NCr,SHr),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=fillb)
+    put(pt,rr,3,"=(C%d*$C$%d+$C$%d)/$C$%d"%(mr,EB27,NCr,SHr),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=fillb)
+    put(pt,rr,4,"=(D%d*$C$%d+$C$%d)/$C$%d"%(mr,EB28,NCr,SHr),font=F_BLUE,fmt=FMT_PS,align=RGT,border=B_ALL,fill=fillb)
+section(pt,33,'E.  Upside/(downside) vs current price',span=4)
+for j,h in enumerate(['Scenario','3-month','6-month','12-month']): put(pt,34,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+for nm,rr,pr in [('Bull',35,29),('Base',36,30),('Bear',37,31)]:
+    put(pt,rr,1,nm,font=F_LBL)
+    for j,col in enumerate(['B','C','D']): put(pt,rr,2+j,"=%s%d/$C$%d-1"%(col,pr,PXr),font=F_BLUE,fmt=FMT_PCT,align=RGT,border=B_ALL)
+put(pt,39,1,'Verdict: fundamental fair value ~Rs110-190 (base ~Rs145) implies BHEL is expensive vs the market price; the price is sustained by sector-premium multiples. Bull requires strong growth to materialise AND premium multiples to persist; Bear reflects de-rating toward fundamentals.',font=F_NOTE)
+freeze(pt,'B5')
+print("Price Targets built.")
+
 # ===== finalise: tab order, colours, save =====
 order=['Cover Page','Assumptions','Assumptions Rationale','Historical Financial Statements','Historical Ratio Analysis',
  'Operational Drivers','Revenue Build-up','Cost Forecast','Working Capital Schedule','Fixed Asset Schedule',
  'Depreciation Schedule','Debt Schedule','Equity Schedule','Other Assets & Liabilities','Cash Flow Statement',
  'Forecast Financial Statements','Ratio Analysis','DCF Valuation','Relative Valuation','Sensitivity Analysis',
- 'Scenario Analysis','Dashboard','Error Checks']
+ 'Scenario Analysis','Price Targets','Dashboard','Error Checks']
 wb._sheets.sort(key=lambda s: order.index(s.title))
 for t in ['Cover Page','Dashboard']: wb[t].sheet_properties.tabColor=NAVY
-for t in ['DCF Valuation','Relative Valuation','Scenario Analysis']: wb[t].sheet_properties.tabColor='548235'
+for t in ['DCF Valuation','Relative Valuation','Scenario Analysis','Price Targets']: wb[t].sheet_properties.tabColor='548235'
 wb['Error Checks'].sheet_properties.tabColor='C00000'; wb['Assumptions'].sheet_properties.tabColor='BF8F00'
 wb.active=wb._sheets.index(wb['Dashboard'])
 wb.save('/projects/sandbox/BHEL/BHEL_Financial_Model.xlsx')
