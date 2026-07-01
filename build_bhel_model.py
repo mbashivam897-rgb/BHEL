@@ -14,6 +14,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import LineChart, BarChart, Reference
+# AUDITED historical data (FY2020-FY2026) extracted & verified from the annual reports
+from audited_full import IS as AIS, BS as ABS, CF as ACF
 
 wb = Workbook(); wb.remove(wb.active)
 
@@ -111,10 +113,10 @@ put(cv,r+2,2,'Green',font=F_GREEN); put(cv,r+2,3,'Link to another worksheet')
 put(cv,r+3,2,'Gold fill',font=F_BLACK,fill=FILL_IN); put(cv,r+3,3,'Editable assumption / input')
 r+=5
 put(cv,r,2,'Data sources & caveats',font=F_SECT); r+=1
-for s in ['Headline financials FY20-26: BHEL BSE/NSE filings (consolidated), aggregated via Screener.in.',
+for s in ['Historical financials FY2020-FY2026: AUDITED consolidated statements from BHEL Annual Reports',
+ '  (FY20-21, FY22-23, FY24-25) and the FY2026 BSE integrated filing - full P&L, balance sheet & cash flow.',
+ 'By-nature P&L costs are mapped to the gross-profit format; each year reproduces audited PBT & PAT exactly.',
  'Order book, inflow & segment data: BHEL results releases & Directors\' Report (standalone basis).',
- 'Detailed expense split (COGS / employee / selling & admin) and detailed balance-sheet sub-lines',
- 'are analyst estimates clearly flagged and anchored to the reported audited TOTALS.',
  'Peer multiples on Relative Valuation are indicative; refresh with live data before use.']:
     put(cv,r,2,s,font=F_ITAL); r+=1
 freeze(cv,'A1')
@@ -159,7 +161,7 @@ put(asm,rowA,1,'B.  FIXED ASSUMPTIONS  (structural / policy - constant across sc
 yhdr(asm,rowA,'ratios / INR Crore'); rowA+=1
 aset('consol_uplift','Consolidation uplift (consol vs standalone rev) %',[0.02]*7,FMT_PCT,note='Subsidiary/JV contribution to revenue; historical 0-6% (FY26 ~0%).')
 aset('oth_inc_pct','Other income (% revenue)',[0.018]*7,FMT_PCT)
-aset('emp_pct','Employee cost (% revenue)',[0.135,0.128,0.122,0.116,0.112,0.108,0.105],FMT_PCT)
+aset('emp_pct','Employee cost (% revenue)',[0.185,0.178,0.170,0.163,0.155,0.148,0.140],FMT_PCT)
 aset('subc_pct','Subcontracting & erection (% revenue, in COGS)',[0.085]*7,FMT_PCT)
 aset('sga_pct','Selling & admin (% revenue)',[0.075]*7,FMT_PCT)
 aset('steel_pct','  COGS: Steel (% revenue)',[0.12]*7,FMT_PCT)
@@ -172,11 +174,11 @@ aset('power_mix','Revenue mix: Power segment %',[0.75]*7,FMT_PCT)
 aset('industry_mix','Revenue mix: Industry segment %',[0.22]*7,FMT_PCT)
 aset('capex','Capital expenditure',[600,700,750,800,850,900,950],FMT_CR)
 aset('dep_rate','Depreciation rate (% opening net block)',[0.095]*7,FMT_PCT)
-aset('recv_days','Trade receivable days',[75]*7,FMT_DAYS)
-aset('inv_days','Inventory days',[210,205,200,200,195,195,190],FMT_DAYS)
-aset('pay_days','Trade payable days',[175]*7,FMT_DAYS)
-aset('ca_pct','Contract assets (% revenue)',[0.235]*7,FMT_PCT)
-aset('cl_pct','Contract liabilities / advances (% revenue)',[0.355]*7,FMT_PCT)
+aset('recv_days','Trade receivable days (vs revenue)',[74]*7,FMT_DAYS)
+aset('inv_days','Inventory days (vs COGS)',[210,206,203,200,198,196,195],FMT_DAYS)
+aset('pay_days','Trade payable days (vs COGS)',[167,166,165,164,163,162,160],FMT_DAYS)
+aset('ca_pct','Contract assets - current (% revenue)',[0.45]*7,FMT_PCT)
+aset('cl_pct','Contract liabilities / advances - current (% revenue)',[0.27]*7,FMT_PCT)
 aset('oca_g','Other current/non-curr assets growth %',[0.03]*7,FMT_PCT)
 aset('ol_g','Provisions & other liabilities growth %',[0.03]*7,FMT_PCT)
 aset('cwip','Capital work-in-progress (closing)',[400]*7,FMT_CR)
@@ -187,8 +189,8 @@ aset('new_borrow','New borrowings drawn',[0]*7,FMT_CR)
 aset('debt_repay','Debt repayment',[1000]*7,FMT_CR)
 aset('int_rate','Interest rate on opening debt',[0.085]*7,FMT_PCT)
 aset('lt_debt_pct','LT borrowings (% of total debt)',[0.35]*7,FMT_PCT)
-aset('other_nca','Other non-current assets (closing)',[15500,16000,16500,17000,17500,18000,18500],FMT_CR)
-aset('other_ncl','Other non-current liabilities (closing)',[6200,6400,6600,6800,7000,7200,7400],FMT_CR)
+aset('other_nca','Other non-current assets (closing)',[21563,22210,22876,23562,24269,24997,25747],FMT_CR)
+aset('other_ncl','Other non-current liabilities (closing)',[18096,18639,19198,19774,20367,20978,21607],FMT_CR)
 wr=rowA+1; put(asm,wr,1,'WACC & valuation inputs',font=F_SECT); wr+=1
 def asingle(key,label,value,fmt,note=''):
     global wr; ah_label(asm,wr,label)
@@ -225,13 +227,14 @@ def hform(r,label,fn,fmt=FMT_CR,bold=False,indent=0,fill=None,key=None,border=No
     for c in HCOLS: put(hf,r,c,fn(c),font=F_BLUE,fmt=fmt,fill=fill,align=RGT,border=border)
     if key: reg(hf,key,r)
 section(hf,3,'A.  INCOME STATEMENT'); yhdr(hf,4,'Particulars')
-rev=[21463,17309,21211,23365,23893,28339,33782]
-emp=[6000,5800,5500,5400,5300,5500,5700]
-sga=[1100,900,1100,1200,1200,1400,1700]
-cogs=[14496,13657,13783,15721,16682,20040,24040]
-oi=[590,393,405,544,608,524,869]; dep=[503,473,314,260,249,272,316]
-fin=[613,467,448,612,828,906,756]; tax=[809,-896,25,62,-39,212,539]
-div=[0,0,138,137,87,176,487]
+# AUDITED consolidated P&L FY2020-FY2026 (annual reports), mapped to gross-profit format
+rev=AIS['rev']
+emp=AIS['emp']
+sga=AIS['sga']
+cogs=AIS['cogs']
+oi=AIS['oi']; dep=AIS['dep']
+fin=AIS['fin']; tax=AIS['tax']
+div=AIS['div']
 hrow(5,'Sales',rev,key='rev',bold=True)
 hrow(6,'Total COGS',cogs,key='cogs',font=F_BLACK)
 hform(7,'Gross Profit',lambda c:"=%s5-%s6"%(CL(c),CL(c)),key='gross',bold=True,border=B_TOP)
@@ -246,18 +249,21 @@ hrow(15,'Other Income',oi,key='oi')
 hrow(16,'Interest Paid',fin,key='fin')
 hform(17,'Profit Before Tax (PBT)',lambda c:"=%s14+%s15-%s16"%(CL(c),CL(c),CL(c)),key='pbt',bold=True,border=B_TOP)
 hrow(18,'Tax',tax,key='tax')
-hrow(19,'Adjustments',[0]*7,key='adj')
+hrow(19,'Adjustments (share of profit of JV/associates)',AIS['adj'],key='adj')
 hform(20,'Profit After Tax (PAT)',lambda c:"=%s17-%s18+%s19"%(CL(c),CL(c),CL(c)),key='pat',bold=True,fill=FILL_TOT,border=B_TB)
 hform(21,'EPS (INR)',lambda c:"=%s20/%s"%(CL(c),XR(ASM,'shares',3)),fmt=FMT_PS,key='eps')
 hrow(22,'Dividend',div,key='div')
 hform(23,'Memo: total operating cost (COGS+OpEx)',lambda c:"=%s6+%s11"%(CL(c),CL(c)),key='totcost',italic=True)
-put(hf,24,1,'COGS, Employee & Selling/admin split are analyst estimates anchored to reported total opex; Sales, EBITDA, D&A, interest, tax, PAT are reported.',font=F_NOTE)
+put(hf,24,1,'AUDITED consolidated figures (Annual Reports FY20-21/FY22-23/FY24-25 + FY26 BSE filing). By-nature costs mapped to gross-profit format: COGS = materials + inventory change; Selling/admin = other expenses (+ FX & provisions in FY20/21); Adjustments = share of JV/associate profit. Each year reproduces audited PBT & PAT exactly.',font=F_NOTE)
 # Balance sheet
 section(hf,26,'B.  BALANCE SHEET'); yhdr(hf,27,'Particulars')
-ppe=[2817,2491,2398,2476,2574,2947,3094]; cwip=[314,420,431,354,308,195,399]
-invv=[162,185,205,235,256,276,302]; otha=[56998,52864,53956,54599,56646,65431,72390]
-eqc=[696]*7; res=[27964,25287,25810,23682,23742,24026,25450]
-bor=[5080,4951,4830,5454,8856,9015,8187]; othl=[26550,25025,25654,27832,26489,35112,41852]
+# AUDITED consolidated balance sheet FY2020-FY2026 (ties exactly, no plug).
+ppe=ABS['ppe']; cwip=ABS['cwip']
+invv=ABS['invst']
+otha=[ABS['recv'][i]+ABS['invy'][i]+ABS['oca'][i]+ABS['cash'][i]+ABS['onca'][i] for i in range(7)]
+eqc=ABS['eqc']; res=ABS['res']
+bor=[ABS['ltbor'][i]+ABS['stbor'][i] for i in range(7)]
+othl=[ABS['oncl'][i]+ABS['pay'][i]+ABS['ocl'][i] for i in range(7)]
 hrow(28,'Net property, plant & equipment',ppe,key='ppe')
 hrow(29,'Capital work-in-progress',cwip,key='cwip')
 hrow(30,'Investments',invv,key='inv')
@@ -271,9 +277,9 @@ hform(37,'TOTAL EQUITY & LIABILITIES',lambda c:"=SUM(%s33:%s36)"%(CL(c),CL(c)),k
 hform(38,'Balance check (TA - TE&L)',lambda c:"=%s32-%s37"%(CL(c),CL(c)),key='bschk')
 # Cash flow
 section(hf,40,'C.  CASH FLOW STATEMENT (reported summary)'); yhdr(hf,41,'Particulars')
-hrow(42,'Cash flow from operating activities',[-2892,560,660,-741,-3713,2192,5837],key='cfo')
-hrow(43,'Cash flow from investing activities',[1877,-42,-1118,1480,1331,-2731,-3035],key='cfi')
-hrow(44,'Cash flow from financing activities',[1622,-394,-329,89,2656,-857,-1806],key='cff')
+hrow(42,'Cash flow from operating activities',ACF['cfo'],key='cfo')
+hrow(43,'Cash flow from investing activities',ACF['cfi'],key='cfi')
+hrow(44,'Cash flow from financing activities',ACF['cff'],key='cff')
 hform(45,'Net increase/(decrease) in cash',lambda c:"=SUM(%s42:%s44)"%(CL(c),CL(c)),key='netcf',bold=True,fill=FILL_TOT,border=B_TB)
 freeze(hf,'B5')
 print("Historical Financial Statements (gross-profit IS) built.")
@@ -304,10 +310,10 @@ section(hr,21,'Working capital (reported day ratios)')
 def drow_h(r,label,vals):
     ah_label(hr,r,label)
     for j,c in enumerate(HCOLS): put(hr,r,c,vals[j],font=F_BLACK,fmt=FMT_DAYS,align=RGT)
-drow_h(22,'Debtor days',[121,85,52,49,73,76,73])
-drow_h(23,'Inventory days',[321,333,274,261,253,289,212])
-drow_h(24,'Payable days',[300,281,291,345,270,259,167])
-drow_h(25,'Cash conversion cycle (days)',[142,137,35,-35,56,106,119])
+drow_h(22,'Debtor days (vs revenue)',[121,85,52,49,73,76,73])
+drow_h(23,'Inventory days (vs COGS)',[232,221,162,151,157,191,212])
+drow_h(24,'Payable days (vs COGS)',[230,205,191,222,185,185,167])
+drow_h(25,'Cash conversion cycle (days)',[123,101,23,-22,45,82,118])
 freeze(hr,'B4')
 
 # ===== 5. OPERATIONAL DRIVERS =====
@@ -432,20 +438,20 @@ print("Revenue Build + Cost Forecast (granular) built.")
 
 # ===== 8. WORKING CAPITAL SCHEDULE =====
 WC='Working Capital Schedule'; wc=newsheet(WC)
-put(wc,2,1,'FY2026 components are flagged estimates summing to reported totals; used to seed the forecast.',font=F_NOTE)
+put(wc,2,1,'FY2026 seeds are AUDITED actuals (BHEL FY26 BSE filing); used to anchor the forecast. Contract assets/liabilities shown at their current portion; the non-current portion sits in the "other" catch-alls and is carved out on the balance sheet.',font=F_NOTE)
 yhdr(wc,4); section(wc,5,'Operating working capital')
 frow(wc,6,'Revenue from operations',hist=lambda c:"=%s"%lnk(c,'rev',HFS),fcst=lambda c:"=%s"%XR(CF,'rev',c),key='rev')
 frow(wc,7,'Cost of sales (total operating cost)',hist=lambda c:"=%s"%lnk(c,'totcost',HFS),fcst=lambda c:"=%s"%XR(CF,'totcost',c),key='cost')
-frow(wc,8,'Trade receivables',seed=6757,fcst=lambda c:"=%s/365*%s6"%(XR(ASM,'recv_days',c),CL(c)),key='recv',indent=1)
-frow(wc,9,'Inventories',seed=18260,fcst=lambda c:"=%s/365*%s7"%(XR(ASM,'inv_days',c),CL(c)),key='inv',indent=1)
-frow(wc,10,'Contract assets',seed=8000,fcst=lambda c:"=%s*%s6"%(XR(ASM,'ca_pct',c),CL(c)),key='ca',indent=1)
-frow(wc,11,'Other current & non-current assets',seed=32373,fcst=lambda c:"=%s*(1+%s)"%(("H11" if c==9 else "%s11"%CL(c-1)),XR(ASM,'oca_g',c)),key='oca',indent=1)
+frow(wc,8,'Trade receivables',seed=6796.27,fcst=lambda c:"=%s/365*%s6"%(XR(ASM,'recv_days',c),CL(c)),key='recv',indent=1)
+frow(wc,9,'Inventories',seed=13334.58,fcst=lambda c:"=%s/365*%s"%(XR(ASM,'inv_days',c),XR(CF,'cogs',c)),key='inv',indent=1)
+frow(wc,10,'Contract assets (current)',seed=15192.89,fcst=lambda c:"=%s*%s6"%(XR(ASM,'ca_pct',c),CL(c)),key='ca',indent=1)
+frow(wc,11,'Other current & non-current assets',seed=25199.61,fcst=lambda c:"=%s*(1+%s)"%(("H11" if c==9 else "%s11"%CL(c-1)),XR(ASM,'oca_g',c)),key='oca',indent=1)
 ah_label(wc,12,'Total operating assets',bold=True)
 for c in range(8,16): put(wc,12,c,"=SUM(%s8:%s11)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 reg(wc,'ta_op',12)
-frow(wc,13,'Trade payables',seed=14386,fcst=lambda c:"=%s/365*%s7"%(XR(ASM,'pay_days',c),CL(c)),key='pay',indent=1)
-frow(wc,14,'Contract liabilities / advances',seed=12000,fcst=lambda c:"=%s*%s6"%(XR(ASM,'cl_pct',c),CL(c)),key='cl',indent=1)
-frow(wc,15,'Provisions & other liabilities',seed=15466,fcst=lambda c:"=%s*(1+%s)"%(("H15" if c==9 else "%s15"%CL(c-1)),XR(ASM,'ol_g',c)),key='ol',indent=1)
+frow(wc,13,'Trade payables',seed=10491.60,fcst=lambda c:"=%s/365*%s"%(XR(ASM,'pay_days',c),XR(CF,'cogs',c)),key='pay',indent=1)
+frow(wc,14,'Contract liabilities / advances (current)',seed=9110.39,fcst=lambda c:"=%s*%s6"%(XR(ASM,'cl_pct',c),CL(c)),key='cl',indent=1)
+frow(wc,15,'Provisions & other liabilities',seed=22250.07,fcst=lambda c:"=%s*(1+%s)"%(("H15" if c==9 else "%s15"%CL(c-1)),XR(ASM,'ol_g',c)),key='ol',indent=1)
 ah_label(wc,16,'Total operating liabilities',bold=True)
 for c in range(8,16): put(wc,16,c,"=SUM(%s13:%s15)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 reg(wc,'tl_op',16)
@@ -455,7 +461,7 @@ reg(wc,'nwc',17)
 ah_label(wc,18,'(Increase)/decrease in NWC')
 for c in FCOLS: put(wc,18,c,"=-(%s17-%s17)"%(CL(c),CL(c-1)),font=F_BLUE,fmt=FMT_CR,align=RGT)
 reg(wc,'dnwc',18)
-frow(wc,19,'Memo: cash & bank (FY26 seed estimate)',seed=7000,fcst=None,key='cash_seed')
+frow(wc,19,'Memo: cash & bank (FY26 seed, audited)',seed=11866.62,fcst=None,key='cash_seed')
 section(wc,21,'Memo: current-asset composition (indicative, forecast)')
 frow(wc,22,'Inventory: raw materials & components (~45%)',fcst=lambda c:"=%s9*0.45"%CL(c),indent=1)
 frow(wc,23,'Inventory: work-in-progress (~35%)',fcst=lambda c:"=%s9*0.35"%CL(c),indent=1)
@@ -551,34 +557,35 @@ freeze(oal,'B5')
 print("Forecast IS + Equity + Other A&L built.")
 
 
-# ===== 14. CASH FLOW STATEMENT (indirect, fully linked) =====
+# ===== 14. CASH FLOW STATEMENT (indirect; historical AUDITED, forecast derived) =====
 CFS='Cash Flow Statement'; cs=newsheet(CFS)
-put(cs,2,1,'Indirect method. FY20-26 reported; FY27-33 = PAT + D&A - increase in NWC; investing & financing from schedules. No plugs.',font=F_NOTE)
+put(cs,2,1,'FY2020-26: AUDITED consolidated cash flow (annual reports), reconciling to cash & cash equivalents. FY2027-33: derived (PAT + D&A +/- change in NWC; investing & financing from schedules). See memo for the link to the broader balance-sheet "cash & bank" line.',font=F_NOTE)
 yhdr(cs,4); section(cs,5,'A.  Operating activities')
-frow(cs,6,'Profit after tax',fcst=lambda c:"=%s"%FR('pat',c),indent=1)
-frow(cs,7,'Add: depreciation & amortisation',fcst=lambda c:"=%s"%XR(DS,'dep',c),indent=1)
-frow(cs,8,'(Increase)/decrease in working capital',fcst=lambda c:"=%s"%XR(WC,'dnwc',c),indent=1)
-frow(cs,9,'Cash flow from operating activities',hist=lambda c:"=%s"%lnk(c,'cfo',HFS),fcst=lambda c:"=SUM(%s6:%s8)"%(CL(c),CL(c)),key='cfo',bold=True,fill=FILL_TOT)
+frow(cs,6,'Profit after tax',hist=lambda c:"=%s"%lnk(c,'pat',HFS),fcst=lambda c:"=%s"%FR('pat',c),indent=1)
+frow(cs,7,'Add: depreciation & amortisation',hist=lambda c:"=%s"%lnk(c,'dep',HFS),fcst=lambda c:"=%s"%XR(DS,'dep',c),indent=1)
+frow(cs,8,'Working capital & other operating adjustments',hist=lambda c:"=%s-%s6-%s7"%(lnk(c,'cfo',HFS),CL(c),CL(c)),fcst=lambda c:"=%s"%XR(WC,'dnwc',c),indent=1)
+frow(cs,9,'Cash flow from operating activities',hist=lambda c:"=SUM(%s6:%s8)"%(CL(c),CL(c)),fcst=lambda c:"=SUM(%s6:%s8)"%(CL(c),CL(c)),key='cfo',bold=True,fill=FILL_TOT)
 section(cs,11,'B.  Investing activities')
-frow(cs,12,'Capital expenditure',fcst=lambda c:"=-%s"%XR(ASM,'capex',c),indent=1)
-frow(cs,13,'Change in CWIP',fcst=lambda c:"=-(%s-%s)"%(XR(ASM,'cwip',c),(lnk(8,'cwip',HFS) if c==9 else XR(ASM,'cwip',c-1))),indent=1)
-frow(cs,14,'Change in investments',fcst=lambda c:"=-(%s-%s)"%(XR(ASM,'investments',c),(lnk(8,'inv',HFS) if c==9 else XR(ASM,'investments',c-1))),indent=1)
-frow(cs,15,'Cash flow from investing activities',hist=lambda c:"=%s"%lnk(c,'cfi',HFS),fcst=lambda c:"=SUM(%s12:%s14)"%(CL(c),CL(c)),key='cfi',bold=True,fill=FILL_TOT)
+frow(cs,12,'Capital expenditure (PPE & intangibles)',hist=lambda c:ACF['capex'][c-2],histfont=F_BLACK,fcst=lambda c:"=-%s"%XR(ASM,'capex',c),indent=1)
+frow(cs,13,'Change in CWIP',hist=lambda c:0,histfont=F_BLACK,fcst=lambda c:"=-(%s-%s)"%(XR(ASM,'cwip',c),(lnk(8,'cwip',HFS) if c==9 else XR(ASM,'cwip',c-1))),indent=1)
+frow(cs,14,'Bank deposits, investments, interest & other investing',hist=lambda c:"=%s-%s12-%s13"%(lnk(c,'cfi',HFS),CL(c),CL(c)),fcst=lambda c:"=-(%s-%s)"%(XR(ASM,'investments',c),(lnk(8,'inv',HFS) if c==9 else XR(ASM,'investments',c-1))),indent=1)
+frow(cs,15,'Cash flow from investing activities',hist=lambda c:"=SUM(%s12:%s14)"%(CL(c),CL(c)),fcst=lambda c:"=SUM(%s12:%s14)"%(CL(c),CL(c)),key='cfi',bold=True,fill=FILL_TOT)
 section(cs,17,'C.  Financing activities')
-frow(cs,18,'New borrowings',fcst=lambda c:"=%s"%XR(DBT,'new',c),indent=1)
-frow(cs,19,'Debt repayment',fcst=lambda c:"=%s"%XR(DBT,'repay',c),indent=1)
-frow(cs,20,'Dividends paid',fcst=lambda c:"=-%s"%FR('div',c),indent=1)
-frow(cs,21,'Cash flow from financing activities',hist=lambda c:"=%s"%lnk(c,'cff',HFS),fcst=lambda c:"=SUM(%s18:%s20)"%(CL(c),CL(c)),key='cff',bold=True,fill=FILL_TOT)
-ah_label(cs,23,'Net increase/(decrease) in cash',bold=True)
-for c in HCOLS: put(cs,23,c,"=%s"%lnk(c,'netcf',HFS),font=F_GREEN,fmt=FMT_CR,align=RGT)
-for c in FCOLS: put(cs,23,c,"=%s9+%s15+%s21"%(CL(c),CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
+frow(cs,18,'New / (net) borrowings',hist=lambda c:ACF['borrow'][c-2],histfont=F_BLACK,fcst=lambda c:"=%s"%XR(DBT,'new',c),indent=1)
+frow(cs,19,'Interest paid & lease payments',hist=lambda c:ACF['intlease'][c-2],histfont=F_BLACK,fcst=lambda c:"=%s"%XR(DBT,'repay',c),indent=1)
+frow(cs,20,'Dividends paid',hist=lambda c:ACF['divpaid'][c-2],histfont=F_BLACK,fcst=lambda c:"=-%s"%FR('div',c),indent=1)
+frow(cs,21,'Cash flow from financing activities',hist=lambda c:"=SUM(%s18:%s20)"%(CL(c),CL(c)),fcst=lambda c:"=SUM(%s18:%s20)"%(CL(c),CL(c)),key='cff',bold=True,fill=FILL_TOT)
+ah_label(cs,23,'Net increase/(decrease) in cash & equivalents',bold=True)
+for c in ACOLS: put(cs,23,c,"=%s9+%s15+%s21"%(CL(c),CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 reg(cs,'netcf',23)
-H_cash_open=[6353,6961,7084,6297,7126,7400,6004]; H_cash_close=[6961,7084,6297,7126,7400,6004,7000]
-frow(cs,24,'Opening cash & bank',hist=lambda c:H_cash_open[c-2],histfont=F_BLACK,
+frow(cs,24,'Opening cash & cash equivalents',hist=lambda c:ACF['open'][c-2]+ACF['roll_adj'][c-2],histfont=F_BLACK,
      fcst=lambda c:("='Working Capital Schedule'!H%d"%REG[WC]['cash_seed']) if c==9 else ("=%s25"%CL(c-1)),key='open_cash')
-frow(cs,25,'Closing cash & bank',hist=lambda c:H_cash_close[c-2],histfont=F_BLACK,
-     fcst=lambda c:"=%s24+%s23"%(CL(c),CL(c)),key='close_cash',bold=True,fill=FILL_TOT)
-put(cs,26,1,'FY20-26 operating/investing/financing shown at reported subtotal level; cash balances rolled from reported net cash flow (FY26 anchor estimated).',font=F_NOTE)
+frow(cs,25,'Closing cash & cash equivalents',hist=lambda c:"=%s24+%s23"%(CL(c),CL(c)),fcst=lambda c:"=%s24+%s23"%(CL(c),CL(c)),key='close_cash',bold=True,fill=FILL_TOT)
+ah_label(cs,27,'Memo: add bank balances/deposits & current investments',italic=True)
+for c in HCOLS: put(cs,27,c,"=%s-%s25"%(ABS['cash'][c-2],CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT)
+ah_label(cs,28,'Memo: cash & bank per balance sheet (broad)',italic=True)
+for c in HCOLS: put(cs,28,c,ABS['cash'][c-2],font=F_GREEN,fmt=FMT_CR,align=RGT)
+put(cs,30,1,'Historical cash flow ties to AUDITED cash & cash equivalents (annual reports). FY22 opening includes a +7.28 cr cash-credit reclassification (disclosed). The balance-sheet "Cash & bank" line is broader - it adds bank deposits (>3 months) & current investments whose movement sits in investing activities; the forecast cash line and the FY27 opening balance are on this broad basis.',font=F_NOTE)
 freeze(cs,'B5')
 
 # ===== FORECAST BALANCE SHEET (grouped format, FY2020-FY2033; history filled) =====
@@ -586,20 +593,20 @@ section(ff,24,'B.  BALANCE SHEET  (FY2020-FY2026 reported, FY2027-33 forecast)')
 yhdr(ff,25,'Particulars')
 put(ff,26,1,'Equities & Liabilities',font=F_LBLB,fill=FILL_SUB)
 for c in range(2,16): ff.cell(row=26,column=c).fill=FILL_SUB
-# historical detailed estimates (anchored exactly to reported totals)
-H_eqc=[696]*7; H_res=[27964,25287,25810,23682,23742,24026,25450]
-H_bor=[5080,4951,4830,5454,8856,9015,8187]
-H_ltbor=[round(b*0.35) for b in H_bor]; H_stbor=[H_bor[i]-H_ltbor[i] for i in range(7)]
-H_oncl=[5000,5000,5000,4000,4500,5500,6000]
-H_othl=[26550,25025,25654,27832,26489,35112,41852]
-H_pay=[17750,15673,16248,21099,17147,19115,14386]
-H_ocl=[H_othl[i]-H_pay[i]-H_oncl[i] for i in range(7)]
-H_ppe=[2817,2491,2398,2476,2574,2947,3094]; H_cwip=[314,420,431,354,308,195,399]; H_invv=[162,185,205,235,256,276,302]
-H_onca=[14000,13500,13000,13500,14000,14500,15000]
-H_recv=[7115,4030,3022,3137,4779,5901,6757]; H_invy=[18994,18573,15301,15962,16069,21331,18260]
-H_cash=[6961,7084,6297,7126,7400,6004,7000]
+# AUDITED detailed consolidated balance sheet FY2020-FY2026 (annual reports); ties exactly, NO plug.
+H_eqc=ABS['eqc']; H_res=ABS['res']
+H_ltbor=ABS['ltbor']; H_stbor=ABS['stbor']
+H_bor=[H_ltbor[i]+H_stbor[i] for i in range(7)]
+H_oncl=ABS['oncl']
+H_pay=ABS['pay']
+H_ocl=ABS['ocl']
+H_othl=[H_oncl[i]+H_pay[i]+H_ocl[i] for i in range(7)]
+H_ppe=ABS['ppe']; H_cwip=ABS['cwip']; H_invv=ABS['invst']
+H_onca=ABS['onca']
+H_recv=ABS['recv']; H_invy=ABS['invy']
+H_cash=ABS['cash']
+H_oca=ABS['oca']
 H_tle=[H_eqc[i]+H_res[i]+H_bor[i]+H_othl[i] for i in range(7)]
-H_oca=[H_tle[i]-(H_ppe[i]+H_cwip[i]+H_invv[i]+H_onca[i]+H_recv[i]+H_invy[i]+H_cash[i]) for i in range(7)]
 def bline(r,label,hvals,fcst,indent=1,key=None):
     ah_label(ff,r,label,indent=indent)
     for j,c in enumerate(HCOLS): put(ff,r,c,hvals[j],font=F_BLACK,fmt=FMT_CR,align=RGT)
@@ -928,27 +935,27 @@ aR('Order inflow','Rs78k->96k cr','FY25 record inflow Rs92,535 cr; FY26 ~Rs75,00
 aR('Revenue mix - Power','75%','BHEL core; power was ~75-80% of revenue historically (FY26 power Rs25,407 cr). Thermal ordering remains dominant near-term.')
 aR('Revenue mix - Industry','22%','Rising diversification (industrial systems, transportation, defence). Industry segment grew strongly in FY25-26; balance ~3% is exports/renewables.')
 aR('COSTS','','',hdr=True)
-aR('EBITDA margin','7.5%->12.0%','Historical FY24 3.0%, FY25 4.9%, FY26 6.9%. Expansion from operating leverage over a largely fixed employee/overhead base, better project mix and roll-off of legacy low-margin orders. Management targets low-teens; peer capital-goods margins 10-18%. Sensitivity: 1pp ~ Rs400-800 cr EBITDA.')
+aR('EBITDA margin','7.5%->12.0%','Audited historical margin (annual reports): FY24 2.6%, FY25 4.4%, FY26 6.9% (rising as revenue scales over a largely fixed cost base). Expansion from operating leverage, better project mix and roll-off of legacy low-margin orders. Management targets low-teens; peer capital-goods margins 10-18%. Sensitivity: 1pp ~ Rs400-800 cr EBITDA.')
 aR('Steel (% rev)','12%','Boilers, turbines and structurals are steel-intensive. Key commodity exposure; +10% steel price ~ +1.2pp COGS. Reflects BHEL bill-of-materials.')
 aR('Copper (% rev)','5%','Generators, transformers and windings are copper-intensive. Exposed to LME copper prices.')
 aR('Electrical & electronic components','10%','Control systems, switchgear, instrumentation and electronics content in power equipment.')
 aR('Imported components','8%','High-tech sub-assemblies imported; FX and import-duty sensitive. Localisation drive aims to reduce this over time.')
 aR('Other materials & consumables','residual','Balancing item so that materials + subcontracting + opex reconcile to the target EBITDA margin (avoids double-counting).')
 aR('Subcontracting & erection','8.5%','Civil works and site erection largely outsourced; scales with project execution. Historical ~8-9%.')
-aR('Employee cost (% rev)','13.5%->10.5%','BHEL employee cost is structurally high (~Rs5,300-6,000 cr, broadly flat in absolute terms). Falls as a % as revenue scales (operating leverage); workforce declining ~33,500->25,500 via attrition.')
+aR('Employee cost (% rev)','18.5%->14.0%','Audited employee benefits (annual reports): Rs5,432 cr (FY20) -> Rs6,468 cr (FY26); as a % of revenue FY24 23.6%, FY25 20.9%, FY26 19.1%. Structurally high & broadly fixed; falls as a % as revenue scales and workforce declines (~33,500->25,500). Forecast starts at the FY26 actual (~19%) and eases toward 14%.')
 aR('Selling & distribution','2.5%','Bid/marketing, logistics, liquidated-damages and warranty-related selling costs; consistent with historical SG&A composition.')
 aR('Administrative (% rev)','~2.5% (residual)','Corporate overheads; residual within total selling/admin so opex reconciles.')
 aR('Research & development','2.5%','BHEL discloses R&D at ~2.5% of turnover; strategic for supercritical/USC, hydrogen/electrolysers, defence and localisation.')
 aR('Depreciation rate','9.5% of opening net block','Consistent with historical D&A / net block (~9-10%); plant & machinery weighted asset base.')
 aR('Capex','Rs600-950 cr','Modernisation plus new capacity for renewables, defence and electrolysers. Historical capex Rs300-900 cr; internally funded.')
 aR('WORKING CAPITAL','','',hdr=True)
-aR('Receivable days','75','Historical 49-121; recent ~73-76. Large PSU/SEB customers but collections improving. Anchored to recent levels.')
-aR('Inventory days','210->190','Historical 212-333; long manufacturing/project cycle. Gradual improvement assumed from better execution and planning.')
-aR('Payable days','175','Historical 167-345; normalised to ~175 supplier credit.')
-aR('Contract assets (% rev)','23.5%','Unbilled revenue on long-cycle EPC projects under percentage-of-completion accounting.')
-aR('Contract liabilities / advances','35.5%','BHEL receives large customer advances on orders - a key working-capital funding source; scales with order activity.')
-aR('Other non-current assets','Rs15.5k->18.5k cr','Deferred tax assets (large, from past losses), long-term/legacy trade receivables and retention, long-term loans & deposits. Held roughly flat / slow growth. Breakup ~40% DTA / 35% LT receivables / 25% loans & deposits.')
-aR('Other non-current liabilities','Rs6.2k->7.4k cr','Lease liabilities, long-term provisions (warranty & employee benefits) and deferred tax liabilities. Breakup ~30% leases / 50% provisions / 20% DTL & other.')
+aR('Receivable days (vs revenue)','74','Audited history 49-121 days; recent FY24-26 ~73-76. Large PSU/SEB customers; collections steady. Anchored to the recent ~74-day level.')
+aR('Inventory days (vs COGS)','210->195','Audited history 151-232 days (FY26 212); long manufacturing/project cycle. Computed on COGS (consistent with the historical ratio sheet). Gradual improvement assumed.')
+aR('Payable days (vs COGS)','167->160','Audited history 167-230 days (FY26 167); computed on COGS. Held near the FY26 level with a slight tightening.')
+aR('Contract assets - current (% rev)','45%','Unbilled revenue on long-cycle EPC projects (percentage-of-completion). Audited FY26 current contract assets Rs15,193 cr = 45% of revenue (total incl non-current Rs29,390 cr ~ 87%). Re-anchored from the prior 23.5% estimate to the audited actual.')
+aR('Contract liab / advances - current (% rev)','27%','Customer advances & billing-in-excess - a key working-capital funding source. Audited FY26 current contract liabilities Rs9,110 cr = 27% of revenue (total incl non-current Rs22,524 cr ~ 67%). Re-anchored from the prior 35.5% estimate to the audited actual.')
+aR('Other non-current assets','Rs21.6k->25.7k cr','Re-anchored to audited FY26 (Rs20,935 cr): non-current contract assets (~Rs14,197 cr), deferred tax assets (Rs3,533 cr), long-term/legacy trade receivables (Rs2,427 cr) and other financial assets/deposits. Grown ~3% p.a.')
+aR('Other non-current liabilities','Rs18.1k->21.6k cr','Re-anchored to audited FY26 (Rs17,569 cr): non-current contract liabilities/advances (~Rs13,413 cr), long-term provisions (warranty & employee benefits, Rs2,355 cr), non-current trade payables and other. Grown ~3% p.a.')
 aR('Other current/NC growth','3% p.a.','Structural balance-sheet items grow slowly, not 1:1 with revenue, to avoid overstating working-capital drag.')
 aR('CWIP / Investments','Rs400 cr / Rs310-370 cr','CWIP steady-state low (capex flows quickly to assets); investments = JV/associate stakes, modest growth.')
 aR('CAPITAL STRUCTURE & TAX','','',hdr=True)
@@ -977,5 +984,5 @@ for t in ['Cover Page','Dashboard']: wb[t].sheet_properties.tabColor=NAVY
 for t in ['DCF Valuation','Relative Valuation','Scenario Analysis']: wb[t].sheet_properties.tabColor='548235'
 wb['Error Checks'].sheet_properties.tabColor='C00000'; wb['Assumptions'].sheet_properties.tabColor='BF8F00'
 wb.active=wb._sheets.index(wb['Dashboard'])
-wb.save('/projects/sandbox/BHEL_Financial_Model.xlsx')
+wb.save('/projects/sandbox/BHEL/BHEL_Financial_Model.xlsx')
 print("SAVED.")
