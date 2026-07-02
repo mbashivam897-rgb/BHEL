@@ -16,6 +16,9 @@ from openpyxl.utils import get_column_letter
 from openpyxl.chart import LineChart, BarChart, Reference
 # AUDITED historical data (FY2020-FY2026) extracted & verified from the annual reports
 from audited_full import IS as AIS, BS as ABS, CF as ACF
+# Contract Accounting Schedule (Ind AS 115) - historical data, driver analysis
+# (coefficient-of-variation-based selection) and forecast glide paths
+import contract_schedule as CS
 
 wb = Workbook(); wb.remove(wb.active)
 
@@ -177,8 +180,14 @@ aset('dep_rate','Depreciation rate (% opening net block)',[0.095]*7,FMT_PCT)
 aset('recv_days','Trade receivable days (vs revenue)',[74,73,72,71,70,69,68],FMT_DAYS)
 aset('inv_days','Inventory days (vs COGS)',[210,207,204,201,198,195,192],FMT_DAYS)
 aset('pay_days','Trade payable days (vs COGS)',[167,166,165,164,163,162,160],FMT_DAYS)
-aset('ca_pct','Contract assets - current (% revenue)',[0.45,0.44,0.43,0.42,0.41,0.40,0.39],FMT_PCT)
-aset('cl_pct','Contract liabilities / advances - current (% revenue)',[0.27,0.28,0.28,0.29,0.29,0.30,0.30],FMT_PCT)
+aset('ca_to_rev','Contract assets (total) / Revenue  [see Contract Accounting Schedule]',CS.CA_TO_REV_FCST,FMT_PCT,
+     note='CV-selected driver (0.139, lowest); CA = unbilled revenue, scales with revenue recognised.')
+aset('cl_to_ob','Contract liabilities (total) / Closing order book  [see Contract Accounting Schedule]',CS.CL_TO_OB_FCST,FMT_PCT,
+     note='CV-selected driver (0.178, lowest order-book-based); CL = customer advances, scales with unexecuted backlog.')
+aset('ca_cur_split','Contract assets - current % of total',[CS.CA_CUR_SPLIT_RECENT]*7,FMT_PCT,
+     note='Recent 3yr (FY24-26) average; structural shift post-FY23 per Q4FY24 concall WC-improvement guidance.')
+aset('cl_cur_split','Contract liabilities - current % of total',[CS.CL_CUR_SPLIT_RECENT]*7,FMT_PCT,
+     note='Recent 3yr (FY24-26) average; structural shift post-FY23 per Q4FY24 concall WC-improvement guidance.')
 aset('oca_g','Other current/non-curr assets growth %',[0.03]*7,FMT_PCT)
 aset('ol_g','Provisions & other liabilities growth %',[0.03]*7,FMT_PCT)
 aset('cwip','Capital work-in-progress (closing)',[400]*7,FMT_CR)
@@ -189,8 +198,10 @@ aset('new_borrow','New borrowings drawn',[0]*7,FMT_CR)
 aset('debt_repay','Debt repayment',[0]*7,FMT_CR)
 aset('int_rate','Interest rate on opening debt',[0.085]*7,FMT_PCT)
 aset('lt_debt_pct','LT borrowings (% of total debt)',[0.02]*7,FMT_PCT)
-aset('other_nca','Other non-current assets (closing)',[21563,22210,22876,23562,24269,24997,25747],FMT_CR)
-aset('other_ncl','Other non-current liabilities (closing)',[18096,18639,19198,19774,20367,20978,21607],FMT_CR)
+aset('other_nca','Other non-current assets - NON-CONTRACT residual (DTA, legacy receivables, other)',[6738]*7,FMT_CR,
+     note='FY26 audited residual (other_nca total less non-current contract assets); held flat - no clear trend FY24-26.')
+aset('other_ncl','Other non-current liabilities - NON-CONTRACT residual (LT provisions, other)',[4155]*7,FMT_CR,
+     note='FY26 audited residual (other_ncl total less non-current contract liabilities); held flat - no clear trend FY24-26.')
 wr=rowA+1; put(asm,wr,1,'WACC & valuation inputs',font=F_SECT); wr+=1
 def asingle(key,label,value,fmt,note=''):
     global wr; ah_label(asm,wr,label)
@@ -408,6 +419,230 @@ ah_label(rb,24,'Total segment revenue (check vs consolidated)',bold=True)
 for c in ACOLS: put(rb,24,c,"=SUM(%s21:%s23)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 freeze(rb,'B5')
 
+# ===== 6B. CONTRACT ACCOUNTING SCHEDULE (Ind AS 115) =====
+# Sell-side / CFA-standard schedule for Contract Assets & Contract Liabilities,
+# split Current / Non-current, historical (FY20-26, audited) and forecast
+# (FY27-33, driver-based). Methodology and full historical extraction live in
+# contract_schedule.py - see that module's docstring for sources, data-quality
+# notes and the coefficient-of-variation driver-selection analysis.
+CAS='Contract Accounting Schedule'; cas=newsheet(CAS)
+put(cas,2,1,'Ind AS 115 "Revenue from Contracts with Customers". Historical figures are AUDITED, extracted from each annual report\'s Ind AS 115 note (movement in impairment, disaggregation of revenue, contract balances) and the Other Assets/Other Liabilities notes (current/non-current split). Forecast drivers are selected by coefficient-of-variation analysis across 5 candidate ratios per item (Section B) - see contract_schedule.py for full workings.',font=F_NOTE)
+yhdr(cas,4,'INR Crore')
+
+# --- A. Historical schedule: Contract Assets ---
+section(cas,5,'A.  Contract Assets - historical (audited)')
+def cas_h(r,label,vals,fmt=FMT_CR,bold=False,indent=0,key=None,fill=None):
+    ah_label(cas,r,label,bold=bold,indent=indent)
+    for j,c in enumerate(HCOLS): put(cas,r,c,vals[j],font=F_BLACK,fmt=fmt,fill=fill,align=RGT,border=B_ALL if bold else None)
+    if key: reg(cas,key,r)
+cas_h(6,'Current contract assets (unbilled revenue)',CS.H['ca_cur'],indent=1,key='h_ca_cur')
+cas_h(7,'Non-current contract assets',CS.H['ca_nc'],indent=1,key='h_ca_nc')
+ah_label(cas,8,'Total contract assets',bold=True)
+for c in HCOLS: put(cas,8,c,"=%s6+%s7"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT,border=B_TOP)
+reg(cas,'h_ca_tot',8)
+section(cas,10,'B.  Contract Liabilities - historical (audited)')
+cas_h(11,'Current contract liabilities (advances/billing-in-excess)',CS.H['cl_cur'],indent=1,key='h_cl_cur')
+cas_h(12,'Non-current contract liabilities',CS.H['cl_nc'],indent=1,key='h_cl_nc')
+ah_label(cas,13,'Total contract liabilities',bold=True)
+for c in HCOLS: put(cas,13,c,"=%s11+%s12"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT,border=B_TOP)
+reg(cas,'h_cl_tot',13)
+put(cas,15,1,'DATA QUALITY: FY2023 contract assets use the AS-ORIGINALLY-REPORTED Rs29,740 cr (AR2022-23 Note 9/40, current+NC = Rs10,811+Rs18,929), which differs from a later regrouped comparative of Rs26,466 cr shown in the AR2024-25 five-year summary; the original figure is used here because only it has a current/non-current split disclosed. FY2026 split (Rs15,193 cr current / Rs14,197 cr non-current) is per the BSE integrated filing.',font=F_NOTE)
+
+# --- C. Historical roll-forward (partial mechanics; derived balancing items clearly flagged) ---
+section(cas,17,'C.  Historical roll-forward (Ind AS 115 mechanics)')
+put(cas,18,1,'BHEL does not disclose "billings during the year" or "gross advances received during the year" as explicit line items. The roll below uses the two components BHEL DOES disclose every year (revenue recognised over time [%-of-completion, i.e. project revenue - builds contract assets] and "revenue recognised against contract liabilities" [reduces the opening contract-liability balance]) and derives the balancing "billed to customer" / "advances received" figure so each roll ties exactly to the reported closing balance. Derived figures are marked [D].',font=F_NOTE)
+put(cas,20,1,'Contract Assets roll',font=F_LBLB)
+for j,h in enumerate(['Opening CA','+ Revenue recognised\n(over time / %-of-completion)','- Billed to customer [D]','= Closing CA']):
+    put(cas,21,2+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+r=22
+for i in range(1,7):
+    hr = CS.historical_roll()[i-1]
+    put(cas,r,1,HIST[i],font=F_LBL)
+    if hr['ot_rev'] is None:
+        put(cas,r,2,hr['ca_open'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+        put(cas,r,3,'n/d',font=F_ITAL,align=CEN,border=B_ALL)
+        put(cas,r,4,'n/d',font=F_ITAL,align=CEN,border=B_ALL)
+        put(cas,r,5,hr['ca_close'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+    else:
+        put(cas,r,2,hr['ca_open'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+        put(cas,r,3,hr['ot_rev'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+        put(cas,r,4,hr['billed'],font=F_ITAL,fmt=FMT_CR,align=RGT,border=B_ALL)
+        put(cas,r,5,hr['ca_close'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+    r+=1
+put(cas,r+1,1,'Contract Liabilities roll',font=F_LBLB); r+=2
+for j,h in enumerate(['Opening CL','+ Advances received [D]','- Revenue recognised\n(against opening CL)','= Closing CL']):
+    put(cas,r,2+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+r+=1
+for i in range(1,7):
+    hr = CS.historical_roll()[i-1]
+    put(cas,r,1,HIST[i],font=F_LBL)
+    if hr['rev_recog'] is None:
+        put(cas,r,2,hr['cl_open'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+        put(cas,r,3,'n/d',font=F_ITAL,align=CEN,border=B_ALL)
+        put(cas,r,4,'n/d',font=F_ITAL,align=CEN,border=B_ALL)
+        put(cas,r,5,hr['cl_close'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+    else:
+        put(cas,r,2,hr['cl_open'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+        put(cas,r,3,hr['adv_recvd'],font=F_ITAL,fmt=FMT_CR,align=RGT,border=B_ALL)
+        put(cas,r,4,hr['rev_recog'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+        put(cas,r,5,hr['cl_close'],font=F_GREEN,fmt=FMT_CR,align=RGT,border=B_ALL)
+    r+=1
+r+=1
+
+# --- D. Driver ratio analysis with CV-based selection ---
+section(cas,r,'D.  Driver ratio analysis (coefficient of variation - lower = more stable = better forecasting driver)'); r+=1
+drow=r; put(cas,drow,1,'Driver',font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+for j,c in enumerate(HCOLS): put(cas,drow,2+j,HIST[j],font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+put(cas,drow,9,'CV',font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+put(cas,drow,10,'Selected?',font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+drow+=1
+driver_defs = [
+ ('CA / Revenue  <- SELECTED (CA driver)', CS.DRIVERS['ca_to_rev'], FMT_X, True),
+ ('CA / Closing order book', CS.DRIVERS['ca_to_ob'], FMT_X, False),
+ ('CA days (vs revenue)', CS.DRIVERS['ca_days'], FMT_DAYS, False),
+ ('CL / Revenue', CS.DRIVERS['cl_to_rev'], FMT_X, False),
+ ('CL / Closing order book  <- SELECTED (CL driver)', CS.DRIVERS['cl_to_ob'], FMT_X, True),
+ ('CL / Order inflow', CS.DRIVERS['cl_to_inflow'], FMT_X, False),
+ ('CL days (vs revenue)', CS.DRIVERS['cl_days'], FMT_DAYS, False),
+ ('CA current %  (of total CA)', CS.DRIVERS['ca_cur_pct'], FMT_PCT, False),
+ ('CA non-current %  (of total CA)', CS.DRIVERS['ca_nc_pct'], FMT_PCT, False),
+ ('CL current %  (of total CL)', CS.DRIVERS['cl_cur_pct'], FMT_PCT, False),
+ ('CL non-current %  (of total CL)', CS.DRIVERS['cl_nc_pct'], FMT_PCT, False),
+]
+for label, series, fmt, selected in driver_defs:
+    ah_label(cas,drow,label,bold=selected)
+    for j,v in enumerate(series):
+        put(cas,drow,2+j,v,font=(F_LBLB if selected else F_BLACK),fmt=fmt,align=RGT,border=B_ALL)
+    cv = CS.CV.get([k for k,vv in CS.DRIVERS.items() if vv is series][0])
+    put(cas,drow,9,cv,font=(F_LBLB if selected else F_BLACK),fmt='0.000',align=RGT,border=B_ALL,fill=(FILL_OK if selected else None))
+    put(cas,drow,10,('YES' if selected else ''),font=F_LBLB,align=CEN,border=B_ALL,fill=(FILL_OK if selected else None))
+    drow+=1
+drow+=1
+put(cas,drow,1,'SELECTION RATIONALE: Contract assets are unbilled REVENUE recognised under the input-cost (%-of-completion) method - they scale with revenue actually recognised, not with the (mostly unexecuted) order book. CA/Revenue has the lowest CV (0.139 vs 0.330 for CA/Order-book) and is economically sound -> SELECTED. Contract liabilities are customer ADVANCES tied to work still to be performed - they scale with the size of the order book (future work), not with revenue already recognised. CL/Closing-order-book has the lowest CV among order-book/inflow-based measures (0.178 vs 0.369 for CL/Revenue, 0.566 for CL/Inflow) and is economically sound -> SELECTED. Both current/non-current splits show a STRUCTURAL SHIFT after FY23 (working-capital initiatives per the Q4FY24 concall, 21-May-2024); the recent 3-year (FY24-26) average is used for the split, not the full 7-year average, as it is far more stable (CV ~0.03-0.07 vs ~0.19-0.23 over the full period) and represents the current operating regime.',font=F_NOTE)
+cas.row_dimensions[drow].height=60
+drow+=3
+
+# --- E. Forecast FY2027-2033 ---
+# NOTE: every row is placed at an EXPLICIT, NAMED row number (no relative
+# drow-N arithmetic) to avoid off-by-one referencing errors.
+section(cas,drow,'E.  Forecast FY2027-FY2033 (driver-based, linked to Revenue Build-up)'); drow+=1
+fh=drow; put(cas,fh,1,'',font=F_LBL)
+for j,c in enumerate(FCOLS): put(cas,fh,2+j,FCST[j],font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+def cas_f(r,label,fn,fmt=FMT_CR,bold=False,indent=0,key=None,fill=None):
+    ah_label(cas,r,label,bold=bold,indent=indent)
+    for c in FCOLS: put(cas,r,c,fn(c),font=F_BLUE,fmt=fmt,fill=fill,align=RGT)
+    if key: reg(cas,key,r)
+
+r_rev      = fh+1
+r_ob       = fh+2
+r_ca_hdr   = fh+4
+r_ca_ratio = fh+5
+r_ca_tot   = fh+6
+r_ca_split = fh+7
+r_ca_cur   = fh+8
+r_ca_nc    = fh+9
+r_cl_hdr   = fh+11
+r_cl_ratio = fh+12
+r_cl_tot   = fh+13
+r_cl_split = fh+14
+r_cl_cur   = fh+15
+r_cl_nc    = fh+16
+
+cas_f(r_rev,'Revenue (from Revenue Build-up)',lambda c:"=%s"%XR(RB,'rev',c),indent=1,key='f_rev')
+cas_f(r_ob,'Closing order book (from Revenue Build-up)',lambda c:"=%s"%XR(RB,'close_ob',c),indent=1,key='f_ob')
+ah_label(cas,r_ca_hdr,'Contract Assets',bold=True)
+cas_f(r_ca_ratio,'CA / Revenue (driver, selected)',lambda c:"=%s"%XR(ASM,'ca_to_rev',c),fmt=FMT_PCT,indent=1,key='f_ca_ratio')
+ah_label(cas,r_ca_tot,'Total contract assets',bold=True)
+for c in FCOLS: put(cas,r_ca_tot,c,"=%s%d*%s%d"%(CL(c),r_ca_ratio,CL(c),r_rev),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
+reg(cas,'f_ca_tot',r_ca_tot)
+cas_f(r_ca_split,'Current split (driver, selected)',lambda c:"=%s"%XR(ASM,'ca_cur_split',c),fmt=FMT_PCT,indent=1,key='f_ca_curpct')
+ah_label(cas,r_ca_cur,'Current contract assets',indent=1)
+for c in FCOLS: put(cas,r_ca_cur,c,"=%s%d*%s%d"%(CL(c),r_ca_tot,CL(c),r_ca_split),font=F_BLUE,fmt=FMT_CR,align=RGT)
+reg(cas,'f_ca_cur',r_ca_cur)
+ah_label(cas,r_ca_nc,'Non-current contract assets',indent=1)
+for c in FCOLS: put(cas,r_ca_nc,c,"=%s%d-%s%d"%(CL(c),r_ca_tot,CL(c),r_ca_cur),font=F_BLUE,fmt=FMT_CR,align=RGT)
+reg(cas,'f_ca_nc',r_ca_nc)
+
+ah_label(cas,r_cl_hdr,'Contract Liabilities',bold=True)
+cas_f(r_cl_ratio,'CL / Closing order book (driver, selected)',lambda c:"=%s"%XR(ASM,'cl_to_ob',c),fmt=FMT_PCT,indent=1,key='f_cl_ratio')
+ah_label(cas,r_cl_tot,'Total contract liabilities',bold=True)
+for c in FCOLS: put(cas,r_cl_tot,c,"=%s%d*%s%d"%(CL(c),r_cl_ratio,CL(c),r_ob),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
+reg(cas,'f_cl_tot',r_cl_tot)
+cas_f(r_cl_split,'Current split (driver, selected)',lambda c:"=%s"%XR(ASM,'cl_cur_split',c),fmt=FMT_PCT,indent=1,key='f_cl_curpct')
+ah_label(cas,r_cl_cur,'Current contract liabilities',indent=1)
+for c in FCOLS: put(cas,r_cl_cur,c,"=%s%d*%s%d"%(CL(c),r_cl_tot,CL(c),r_cl_split),font=F_BLUE,fmt=FMT_CR,align=RGT)
+reg(cas,'f_cl_cur',r_cl_cur)
+ah_label(cas,r_cl_nc,'Non-current contract liabilities',indent=1)
+for c in FCOLS: put(cas,r_cl_nc,c,"=%s%d-%s%d"%(CL(c),r_cl_tot,CL(c),r_cl_cur),font=F_BLUE,fmt=FMT_CR,align=RGT)
+reg(cas,'f_cl_nc',r_cl_nc)
+drow = r_cl_nc+3
+
+# --- F. Sensitivity: execution rate & CL/OB ratio impact on contract balances and cash ---
+section(cas,drow,'F.  Sensitivity - execution rate & customer-advance (CL/order-book) rate'); drow+=1
+put(cas,drow,1,'Impact of a +/-1pp change in FY2027E execution rate and FY2027E CL/order-book ratio on FY2027E contract balances and net working-capital cash impact (vs base case). All other assumptions held at base case.',font=F_NOTE)
+drow+=2
+sh1=drow
+for j,h in enumerate(['Scenario','FY27E Rev','FY27E CA','FY27E CL','Net WC cash impact (CA-CL), delta vs base']):
+    put(cas,sh1,1+j,h,font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+sh1+=1
+_sens_rows = [
+ ('Base case', 0.0, 0.0),
+ ('Execution rate +1pp', 0.01, 0.0),
+ ('Execution rate -1pp', -0.01, 0.0),
+ ('CL/order-book +1pp', 0.0, 0.01),
+ ('CL/order-book -1pp', 0.0, -0.01),
+]
+_base_oi=[78000,82000,86000,90000,92000,94000,96000]
+_base_er=[0.165,0.170,0.175,0.180,0.185,0.190,0.195]
+_base_cu=[0.02]*7
+_base_fc = CS.sensitivity(_base_oi,_base_er,_base_cu,CS.CA_TO_REV_FCST,CS.CL_TO_OB_FCST)
+_base_wc = _base_fc['ca'][0]-_base_fc['cl'][0]
+for lbl, der, dcl in _sens_rows:
+    er = [_base_er[0]+der]+_base_er[1:]
+    cl_ratio = [CS.CL_TO_OB_FCST[0]+dcl]+CS.CL_TO_OB_FCST[1:]
+    fc = CS.sensitivity(_base_oi, er, _base_cu, CS.CA_TO_REV_FCST, cl_ratio)
+    wc = fc['ca'][0]-fc['cl'][0]
+    put(cas,sh1,1,lbl,font=F_LBL)
+    put(cas,sh1,2,fc['rev'][0],font=F_BLACK,fmt=FMT_CR,align=RGT,border=B_ALL)
+    put(cas,sh1,3,fc['ca'][0],font=F_BLACK,fmt=FMT_CR,align=RGT,border=B_ALL)
+    put(cas,sh1,4,fc['cl'][0],font=F_BLACK,fmt=FMT_CR,align=RGT,border=B_ALL)
+    put(cas,sh1,5,wc-_base_wc,font=F_BLACK,fmt=FMT_CR,align=RGT,border=B_ALL,fill=(FILL_OK if lbl=='Base case' else None))
+    sh1+=1
+sh1+=1
+put(cas,sh1,1,'Reading: a HIGHER execution rate converts order book to revenue faster, raising contract assets (more unbilled revenue) - a cash DRAG. A HIGHER CL/order-book ratio means customers advance more cash relative to backlog - a cash BENEFIT. These are pre-computed reference scenarios (Python cross-check); the live two-way table below recalculates directly from the Assumptions sheet.',font=F_NOTE)
+sh1+=2
+# Live two-way data table: Net WC cash impact (CA - CL) for FY2027E, vs a
+# delta on the execution rate (which drives revenue -> CA) and a delta on the
+# CL/order-book ratio (which drives CL). Rebuilt explicitly from first
+# principles so it is auditable:
+#   open_ob   = FY2026 closing order book (Revenue Build-up, col H)
+#   rev_new   = open_ob * (exec_rate + delta_er) * (1 + consol_uplift)
+#   ob_new    = open_ob + order_inflow - open_ob*(exec_rate + delta_er)
+#   ca_new    = ca_to_rev * rev_new
+#   cl_new    = (cl_to_ob + delta_cl) * ob_new
+#   net WC impact = ca_new - cl_new
+put(cas,sh1,1,'Live sensitivity: FY2027E (Contract Assets - Contract Liabilities), INR Cr, vs execution-rate & CL/OB deltas',font=F_LBLB); sh1+=1
+open_ob_ref = "'%s'!H10"%RB           # FY2026 closing order book (audited)
+inflow_ref  = XR(ASM,'order_inflow',9)
+uplift_ref  = XR(ASM,'consol_uplift',9)
+ca_ratio_ref= XR(ASM,'ca_to_rev',9)
+put(cas,sh1,2,'CL/OB delta \\ Exec.rate delta',font=F_LBLB,fill=FILL_SUB,align=CEN,border=B_ALL)
+hdr_row=sh1
+for j,ed in enumerate([-0.02,-0.01,0.0,0.01,0.02]):
+    put(cas,sh1,3+j,"=%s+(%s)"%(XR(ASM,'exec_rate',9),ed),font=F_BLACK,fmt=FMT_PCT,fill=FILL_SUB,align=CEN,border=B_ALL)
+for i,cd in enumerate([-0.02,-0.01,0.0,0.01,0.02]):
+    rr=hdr_row+1+i
+    put(cas,rr,2,"=%s+(%s)"%(XR(ASM,'cl_to_ob',9),cd),font=F_BLACK,fmt=FMT_PCT,fill=FILL_SUB,align=CEN,border=B_ALL)
+    for j in range(5):
+        er_cell="%s$%d"%(CL(3+j),hdr_row)
+        cl_cell="$B%d"%rr
+        rev_new="(%s*%s*(1+%s))"%(open_ob_ref,er_cell,uplift_ref)
+        ob_new ="(%s+%s-%s*%s)"%(open_ob_ref,inflow_ref,open_ob_ref,er_cell)
+        f="=%s*%s-%s*%s"%(ca_ratio_ref,rev_new,cl_cell,ob_new)
+        put(cas,rr,3+j,f,font=F_BLUE,fmt=FMT_CR,align=RGT,border=B_ALL,fill=(FILL_OK if (i==2 and j==2) else None))
+freeze(cas,'B5')
+print("Contract Accounting Schedule built.")
+
 # ===== 7. COST FORECAST (granular breakup) =====
 CF='Cost Forecast'; cf=newsheet(CF)
 put(cf,2,1,'Granular cost build-up. COGS = materials (steel/copper/components/imported/other) + subcontracting. OpEx = employee + selling + admin + R&D. EBITDA = revenue x target margin. Historical sub-components are not separately disclosed (shown at total level).',font=F_NOTE)
@@ -438,36 +673,48 @@ print("Revenue Build + Cost Forecast (granular) built.")
 
 # ===== 8. WORKING CAPITAL SCHEDULE =====
 WC='Working Capital Schedule'; wc=newsheet(WC)
-put(wc,2,1,'FY2026 seeds are AUDITED actuals (BHEL FY26 BSE filing); used to anchor the forecast. Contract assets/liabilities shown at their current portion; the non-current portion sits in the "other" catch-alls and is carved out on the balance sheet.',font=F_NOTE)
+put(wc,2,1,'Working capital = CURRENT operating items only. Non-current & non-operating items (deferred tax, non-current contract assets/liabilities, long-term provisions) are shown in a separate block and EXCLUDED from operating NWC and from the DCF free cash flow; their change flows to cash via the total line so the balance sheet still ties. FY2026 seeds are audited actuals.',font=F_NOTE)
 yhdr(wc,4); section(wc,5,'Operating working capital')
 frow(wc,6,'Revenue from operations',hist=lambda c:"=%s"%lnk(c,'rev',HFS),fcst=lambda c:"=%s"%XR(CF,'rev',c),key='rev')
 frow(wc,7,'Cost of sales (total operating cost)',hist=lambda c:"=%s"%lnk(c,'totcost',HFS),fcst=lambda c:"=%s"%XR(CF,'totcost',c),key='cost')
 frow(wc,8,'Trade receivables',seed=6796.27,fcst=lambda c:"=%s/365*%s6"%(XR(ASM,'recv_days',c),CL(c)),key='recv',indent=1)
 frow(wc,9,'Inventories',seed=13334.58,fcst=lambda c:"=%s/365*%s"%(XR(ASM,'inv_days',c),XR(CF,'cogs',c)),key='inv',indent=1)
-frow(wc,10,'Contract assets (current)',seed=15192.89,fcst=lambda c:"=%s*%s6"%(XR(ASM,'ca_pct',c),CL(c)),key='ca',indent=1)
-frow(wc,11,'Other current & non-current assets',seed=25199.61,fcst=lambda c:"=%s*(1+%s)"%(("H11" if c==9 else "%s11"%CL(c-1)),XR(ASM,'oca_g',c)),key='oca',indent=1)
-ah_label(wc,12,'Total operating assets',bold=True)
+frow(wc,10,'Contract assets (current)',seed=15192.89,fcst=lambda c:"=%s"%XR(CAS,'f_ca_cur',c),key='ca',indent=1)
+frow(wc,11,'Other current operating assets',seed=4264.99,fcst=lambda c:"=%s*(1+%s)"%(("H11" if c==9 else "%s11"%CL(c-1)),XR(ASM,'oca_g',c)),key='oca_cur',indent=1)
+ah_label(wc,12,'Total current operating assets',bold=True)
 for c in range(8,16): put(wc,12,c,"=SUM(%s8:%s11)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 reg(wc,'ta_op',12)
 frow(wc,13,'Trade payables',seed=10491.60,fcst=lambda c:"=%s/365*%s"%(XR(ASM,'pay_days',c),XR(CF,'cogs',c)),key='pay',indent=1)
-frow(wc,14,'Contract liabilities / advances (current)',seed=9110.39,fcst=lambda c:"=%s*%s6"%(XR(ASM,'cl_pct',c),CL(c)),key='cl',indent=1)
-frow(wc,15,'Provisions & other liabilities',seed=22250.07,fcst=lambda c:"=%s*(1+%s)"%(("H15" if c==9 else "%s15"%CL(c-1)),XR(ASM,'ol_g',c)),key='ol',indent=1)
-ah_label(wc,16,'Total operating liabilities',bold=True)
+frow(wc,14,'Contract liabilities / advances (current)',seed=9110.39,fcst=lambda c:"=%s"%XR(CAS,'f_cl_cur',c),key='cl',indent=1)
+frow(wc,15,'Other current operating liabilities',seed=4681.42,fcst=lambda c:"=%s*(1+%s)"%(("H15" if c==9 else "%s15"%CL(c-1)),XR(ASM,'ol_g',c)),key='ol_cur',indent=1)
+ah_label(wc,16,'Total current operating liabilities',bold=True)
 for c in range(8,16): put(wc,16,c,"=SUM(%s13:%s15)"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
 reg(wc,'tl_op',16)
-ah_label(wc,17,'Net working capital',bold=True)
+ah_label(wc,17,'Operating net working capital (current only)',bold=True)
 for c in range(8,16): put(wc,17,c,"=%s12-%s16"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT,border=B_TOP)
 reg(wc,'nwc',17)
-ah_label(wc,18,'(Increase)/decrease in NWC')
+ah_label(wc,18,'(Increase)/decrease in operating NWC  ->  FCFF')
 for c in FCOLS: put(wc,18,c,"=-(%s17-%s17)"%(CL(c),CL(c-1)),font=F_BLUE,fmt=FMT_CR,align=RGT)
-reg(wc,'dnwc',18)
-frow(wc,19,'Memo: cash & bank (FY26 seed, audited)',seed=11866.62,fcst=None,key='cash_seed')
-section(wc,21,'Memo: current-asset composition (indicative, forecast)')
-frow(wc,22,'Inventory: raw materials & components (~45%)',fcst=lambda c:"=%s9*0.45"%CL(c),indent=1)
-frow(wc,23,'Inventory: work-in-progress (~35%)',fcst=lambda c:"=%s9*0.35"%CL(c),indent=1)
-frow(wc,24,'Inventory: finished goods & stores (~20%)',fcst=lambda c:"=%s9*0.20"%CL(c),indent=1)
-frow(wc,25,'Receivables: billed / trade (~70%)',fcst=lambda c:"=%s8*0.70"%CL(c),indent=1)
-frow(wc,26,'Receivables: unbilled / retention (~30%)',fcst=lambda c:"=%s8*0.30"%CL(c),indent=1)
+reg(wc,'dnwc_op',18)
+section(wc,20,'Non-current & non-operating items (on balance sheet; EXCLUDED from working capital)')
+put(wc,20,16,'incl deferred tax (non-operating) & long-dated contract balances',font=F_NOTE)
+frow(wc,21,'Other non-current assets (= non-contract residual + NC contract assets, from Contract Accounting Schedule)',seed=20934.62,fcst=lambda c:"=%s+%s"%(XR(ASM,'other_nca',c),XR(CAS,'f_ca_nc',c)),key='onca',indent=1)
+frow(wc,22,'Other non-current liabilities (= non-contract residual + NC contract liab, from Contract Accounting Schedule)',seed=17568.65,fcst=lambda c:"=%s+%s"%(XR(ASM,'other_ncl',c),XR(CAS,'f_cl_nc',c)),key='oncl',indent=1)
+ah_label(wc,23,'Net non-current items (assets - liabilities)',bold=True)
+for c in range(8,16): put(wc,23,c,"=%s21-%s22"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT,border=B_TOP)
+ah_label(wc,24,'(Increase)/decrease in net non-current items')
+for c in FCOLS: put(wc,24,c,"=-(%s23-%s23)"%(CL(c),CL(c-1)),font=F_BLUE,fmt=FMT_CR,align=RGT)
+reg(wc,'dnc',24)
+ah_label(wc,25,'Total (increase)/decrease in NWC incl non-current  ->  cash flow',bold=True)
+for c in FCOLS: put(wc,25,c,"=%s18+%s24"%(CL(c),CL(c)),font=F_BLUE,fmt=FMT_CR,align=RGT,fill=FILL_TOT)
+reg(wc,'dnwc',25)
+frow(wc,27,'Memo: cash & bank (FY26 seed, audited)',seed=11866.62,fcst=None,key='cash_seed')
+section(wc,29,'Memo: current-asset composition (indicative, forecast)')
+frow(wc,30,'Inventory: raw materials & components (~45%)',fcst=lambda c:"=%s9*0.45"%CL(c),indent=1)
+frow(wc,31,'Inventory: work-in-progress (~35%)',fcst=lambda c:"=%s9*0.35"%CL(c),indent=1)
+frow(wc,32,'Inventory: finished goods & stores (~20%)',fcst=lambda c:"=%s9*0.20"%CL(c),indent=1)
+frow(wc,33,'Receivables: billed / trade (~70%)',fcst=lambda c:"=%s8*0.70"%CL(c),indent=1)
+frow(wc,34,'Receivables: unbilled / retention (~30%)',fcst=lambda c:"=%s8*0.30"%CL(c),indent=1)
 freeze(wc,'B5')
 
 # ===== 9. FIXED ASSET + 10. DEPRECIATION =====
@@ -550,9 +797,9 @@ OAL='Other Assets & Liabilities'; oal=newsheet(OAL); yhdr(oal,4); section(oal,5,
 frow(oal,6,'Capital work-in-progress',hist=lambda c:"=%s"%lnk(c,'cwip',HFS),fcst=lambda c:"=%s"%XR(ASM,'cwip',c),key='cwip')
 frow(oal,7,'Investments',hist=lambda c:"=%s"%lnk(c,'inv',HFS),fcst=lambda c:"=%s"%XR(ASM,'investments',c),key='inv')
 frow(oal,8,'Contract assets (memo, from WC)',fcst=lambda c:"=%s"%XR(WC,'ca',c),key='ca')
-frow(oal,9,'Other operating assets (memo, from WC)',fcst=lambda c:"=%s"%XR(WC,'oca',c),key='oca')
+frow(oal,9,'Other current operating assets (memo, from WC)',fcst=lambda c:"=%s"%XR(WC,'oca_cur',c),key='oca')
 frow(oal,10,'Contract liabilities (memo, from WC)',fcst=lambda c:"=%s"%XR(WC,'cl',c),key='cl')
-frow(oal,11,'Provisions & other liabilities (memo, from WC)',fcst=lambda c:"=%s"%XR(WC,'ol',c),key='ol')
+frow(oal,11,'Other current operating liabilities (memo, from WC)',fcst=lambda c:"=%s"%XR(WC,'ol_cur',c),key='ol')
 freeze(oal,'B5')
 print("Forecast IS + Equity + Other A&L built.")
 
@@ -623,11 +870,11 @@ bsub(30,"Total Shareholders' Fund",lambda c:"=%s28+%s29"%(CL(c),CL(c)),key='tsf'
 ah_label(ff,32,'Liabilities',bold=True)
 ah_label(ff,33,'Non-Current Liabilities',bold=True)
 bline(34,'LT borrowings',H_ltbor,lambda c:"=%s*%s"%(XR(ASM,'lt_debt_pct',c),XR(DBT,'close_d',c)),key='lt_bor')
-bline(35,'Other non current liabilities',H_oncl,lambda c:"=%s"%XR(ASM,'other_ncl',c),key='other_ncl')
+bline(35,'Other non current liabilities (incl NC contract liab)',H_oncl,lambda c:"=%s"%XR(WC,'oncl',c),key='other_ncl')
 bsub(36,'Total Non-Current Liabilities',lambda c:"=%s34+%s35"%(CL(c),CL(c)),fill=None,key='tncl')
 bline(37,'ST borrowings',H_stbor,lambda c:"=%s-%s34"%(XR(DBT,'close_d',c),CL(c)),key='st_bor')
 bline(38,'Trade Payables',H_pay,lambda c:"=%s"%XR(WC,'pay',c),key='pay')
-bline(39,'Other Current Liabilities (provisions, advances)',H_ocl,lambda c:"=%s+%s-%s35"%(XR(WC,'cl',c),XR(WC,'ol',c),CL(c)),key='other_cl')
+bline(39,'Other Current Liabilities (provisions, advances)',H_ocl,lambda c:"=%s+%s"%(XR(WC,'cl',c),XR(WC,'ol_cur',c)),key='other_cl')
 bsub(40,'Total Liabilities',lambda c:"=%s36+%s37+%s38+%s39"%(CL(c),CL(c),CL(c),CL(c)),fill=None,key='tliab')
 bsub(42,'Total Equity & Liabilities',lambda c:"=%s30+%s40"%(CL(c),CL(c)),key='tle',border=B_TB)
 ah_label(ff,44,'Assets',bold=True)
@@ -639,12 +886,12 @@ bline(47,'Property Plant & Equip',H_ppe,lambda c:"=%s"%XR(FA,'close_nb',c),key='
 bline(48,'Capital Work in Progress',H_cwip,lambda c:"=%s"%XR(ASM,'cwip',c),key='cwip')
 bline(49,'Investments',H_invv,lambda c:"=%s"%XR(ASM,'investments',c),key='invst')
 bsub(50,'Total Fixed Assets',lambda c:"=SUM(%s47:%s49)"%(CL(c),CL(c)),fill=None,key='tfa')
-bline(51,'Other Non Current Assets',H_onca,lambda c:"=%s"%XR(ASM,'other_nca',c),key='other_nca')
+bline(51,'Other Non Current Assets (incl NC contract assets)',H_onca,lambda c:"=%s"%XR(WC,'onca',c),key='other_nca')
 bsub(52,'Total Non Current Assets',lambda c:"=%s50+%s51"%(CL(c),CL(c)),fill=None,key='tnca')
 ah_label(ff,54,'Current Assets',bold=True)
 bline(55,'Accounts Receivables',H_recv,lambda c:"=%s"%XR(WC,'recv',c),key='recv')
 bline(56,'Inventories',H_invy,lambda c:"=%s"%XR(WC,'inv',c),key='inventory')
-bline(57,'Other Current Assets',H_oca,lambda c:"=%s+%s-%s51"%(XR(WC,'ca',c),XR(WC,'oca',c),CL(c)),key='other_ca')
+bline(57,'Other Current Assets',H_oca,lambda c:"=%s+%s"%(XR(WC,'ca',c),XR(WC,'oca_cur',c)),key='other_ca')
 bline(58,'Cash Balance (Incl. Bank and Current Invest)',H_cash,lambda c:"=%s"%XR(CFS,'close_cash',c),key='cash')
 bsub(59,'Total Current Assets',lambda c:"=SUM(%s55:%s58)"%(CL(c),CL(c)),fill=None,key='tca')
 bsub(61,'Total Assets',lambda c:"=%s52+%s59"%(CL(c),CL(c)),key='ta',border=B_TB)
@@ -683,7 +930,7 @@ dcfr(7,'Less: cash taxes on EBIT',lambda c:"=-%s6*%s"%(CL(c),XR(ASM,'tax_rate',c
 dcfr(8,'NOPAT',lambda c:"=%s6+%s7"%(CL(c),CL(c)),font=F_BLUE,bold=True)
 dcfr(9,'Add: depreciation & amortisation',lambda c:"=%s"%XR(DS,'dep',c),indent=1)
 dcfr(10,'Less: capital expenditure',lambda c:"=-%s"%XR(ASM,'capex',c),indent=1)
-dcfr(11,'Add/(less): change in working capital',lambda c:"=%s"%XR(WC,'dnwc',c),indent=1)
+dcfr(11,'Add/(less): change in operating working capital',lambda c:"=%s"%XR(WC,'dnwc_op',c),indent=1)
 dcfr(12,'Free cash flow to firm (FCFF)',lambda c:"=%s8+%s9+%s10+%s11"%(CL(c),CL(c),CL(c),CL(c)),font=F_BLUE,bold=True,fill=FILL_TOT,key='fcff')
 ah_label(dc,13,'Discount period (years)')
 for i,c in enumerate(FCOLS): put(dc,13,c,i+1,font=F_BLACK,fmt='0',align=RGT,fill=FILL_IN)
@@ -993,11 +1240,11 @@ aR('WORKING CAPITAL','','',hdr=True)
 aR('Receivable days (vs revenue)','74 -> 68','Audited history 49-121 (FY26 73). Tapered down per management WC-improvement focus (Q4FY24 concall): legacy dues clearing within a quarter of milestone completion.')
 aR('Inventory days (vs COGS)','210 -> 192','Audited history 151-232 (FY26 212); long project cycle. Tapered per management guidance on better execution & supply-chain/vendor normalisation (Q4FY24 concall).')
 aR('Payable days (vs COGS)','167->160','Audited history 167-230 days (FY26 167); computed on COGS. Held near the FY26 level with a slight tightening.')
-aR('Contract assets - current (% rev)','45% -> 39%','Unbilled revenue on long-cycle EPC (percentage-of-completion). Audited FY26 current contract assets = 45% of revenue. VALIDATION: per Q4FY26 supplementary, TOTAL contract assets were ~flat YoY (Rs29,444->29,390 cr) despite +19% revenue, so contract-assets/revenue fell ~104%->~87% - the taper is thus conservative. Consistent with Q4FY24 concall guidance (legacy NTPC clearing, faster billing, better payment terms) -> working capital "getting better".')
-aR('Contract liab / advances - current (% rev)','27% -> 30%','Customer advances & billing-in-excess - key WC funding. Audited FY26 = 27% of revenue. Rising modestly per management (Q4FY24 concall): improved advance / milestone payment terms on new orders (e.g. NTPC bulk orders).')
-aR('Other non-current assets','Rs21.6k->25.7k cr','Re-anchored to audited FY26 (Rs20,935 cr): non-current contract assets (~Rs14,197 cr), deferred tax assets (Rs3,533 cr), long-term/legacy trade receivables (Rs2,427 cr) and other financial assets/deposits. Grown ~3% p.a.')
-aR('Other non-current liabilities','Rs18.1k->21.6k cr','Re-anchored to audited FY26 (Rs17,569 cr): non-current contract liabilities/advances (~Rs13,413 cr), long-term provisions (warranty & employee benefits, Rs2,355 cr), non-current trade payables and other. Grown ~3% p.a.')
-aR('Other current/NC growth','3% p.a.','Structural balance-sheet items grow slowly, not 1:1 with revenue, to avoid overstating working-capital drag.')
+aR('Contract assets (total) / Revenue','83% -> 65%','Full sell-side driver derivation in the Contract Accounting Schedule (Ind AS 115): 5 candidate drivers tested by coefficient of variation across FY20-26; CA/Revenue selected (CV 0.139, lowest, and economically sound - CA is unbilled revenue under %-of-completion accounting, so it tracks revenue recognised, not the largely-unexecuted order book). Tapers from the FY26 actual (87%) toward a steady state, continuing the FY24-26 improvement trend (Q4FY24 concall + Q4FY26 supplementary: contract assets flat YoY despite +19% revenue) at a moderated pace. Current/non-current split (52%/48%) = recent 3yr average, reflecting a post-FY23 structural shift.')
+aR('Contract liabilities (total) / Order book','9.5% -> 10.5%','Full sell-side driver derivation in the Contract Accounting Schedule (Ind AS 115): CL/Closing-order-book selected (CV 0.178, lowest among order-book/inflow-based measures, and economically sound - CL is customer advances tied to UNEXECUTED backlog, not to revenue already recognised). Continues the FY24-26 rise (5.4%->7.8%->9.4%) per management guidance on improved advance/milestone payment terms, plateauing modestly above the FY26 level. Current/non-current split (40%/60%) = recent 3yr average.')
+aR('Other non-current assets (residual)','Rs6,738 cr flat','Non-CONTRACT residual only (deferred tax assets ~Rs3,533 cr, long-term/legacy trade receivables ~Rs2,427 cr, other financial assets/deposits). Non-current CONTRACT assets are modelled separately and explicitly in the Contract Accounting Schedule (see above) and added back on the balance sheet. Residual held flat at the FY26 audited level - no clear multi-year trend in DTA/legacy receivables to support a growth assumption.')
+aR('Other non-current liabilities (residual)','Rs4,155 cr flat','Non-CONTRACT residual only (long-term provisions - warranty & employee benefits ~Rs2,355 cr - and other). Non-current CONTRACT liabilities are modelled separately and explicitly in the Contract Accounting Schedule (see above) and added back on the balance sheet. Residual held flat at the FY26 audited level - no clear multi-year trend to support a growth assumption.')
+aR('Other current operating assets/liabilities growth','3% p.a.','Remaining minor current operating items (excl. contract assets/liabilities, which now have their own driver) grow slowly, not 1:1 with revenue, to avoid overstating working-capital drag.')
 aR('CWIP / Investments','Rs400 cr / Rs310-370 cr','CWIP steady-state low (capex flows quickly to assets); investments = JV/associate stakes, modest growth.')
 aR('CAPITAL STRUCTURE & TAX','','',hdr=True)
 aR('LT vs ST borrowings','~2% LT / 98% ST','Audited: BHEL borrowings are almost entirely short-term working-capital lines. The only "long-term" borrowing is lease liabilities (~Rs170 cr in FY26 = 2.05% of total; FY20-26 range 0.3-2.1%). Re-anchored from the prior arbitrary 35% split to the audited actual ~2%.')
@@ -1071,7 +1318,7 @@ print("Price Targets built.")
 
 # ===== finalise: tab order, colours, save =====
 order=['Cover Page','Assumptions','Assumptions Rationale','Historical Financial Statements','Historical Ratio Analysis',
- 'Operational Drivers','Revenue Build-up','Cost Forecast','Working Capital Schedule','Fixed Asset Schedule',
+ 'Operational Drivers','Revenue Build-up','Contract Accounting Schedule','Cost Forecast','Working Capital Schedule','Fixed Asset Schedule',
  'Depreciation Schedule','Debt Schedule','Equity Schedule','Other Assets & Liabilities','Cash Flow Statement',
  'Forecast Financial Statements','Ratio Analysis','DCF Valuation','Relative Valuation','Sensitivity Analysis',
  'Scenario Analysis','Price Targets','Dashboard','Error Checks']
